@@ -1,0 +1,84 @@
+{
+  "compilerOptions": {
+    // 基础配置
+    "target": "ES2020",                          // 编译目标版本
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable"
+    ],                                           // 包含的库文件
+    "allowJs": true,                             // 允许编译JS文件
+    "skipLibCheck": true,                        // 跳过库文件的类型检查
+    "esModuleInterop": true,                     // 启用ES模块互操作性
+    "allowSyntheticDefaultImports": true,        // 允许合成默认导入
+    "strict": true,                              // 启用所有严格类型检查选项
+    "forceConsistentCasingInFileNames": true,    // 强制文件名大小写一致
+
+    // 模块解析
+    "module": "ESNext",                          // 模块系统
+    "moduleResolution": "node",                  // 模块解析策略
+    "resolveJsonModule": true,                   // 允许导入JSON文件
+    "isolatedModules": true,                     // 确保每个文件可以独立编译
+    "noEmit": true,                              // 不生成输出文件（由构建工具处理）
+    "allowImportingTsExtensions": true,          // 允许在import中使用.ts/.tsx扩展名
+
+    // JSX配置
+    "jsx": "react-jsx",                          // JSX编译方式（React 17+）
+
+    // 路径映射
+    "baseUrl": ".",                              // 基础路径
+    "paths": {
+      "@/*": ["src/*"],                          // @符号映射到src目录
+      "@/components/*": ["src/components/*"],    // 组件路径
+      "@/hooks/*": ["src/hooks/*"],              // hooks路径
+      "@/types/*": ["src/types/*"],              // 类型定义路径
+      "@/utils/*": ["src/utils/*"]               // 工具函数路径
+    },
+
+    // 代码质量
+    "noUnusedLocals": true,                      // 检查未使用的局部变量
+    "noUnusedParameters": true,                  // 检查未使用的参数
+    "noImplicitReturns": true,                   // 检查隐式返回
+    "noFallthroughCasesInSwitch": true,          // 检查switch语句的fallthrough
+
+    // 实验性特性
+    "experimentalDecorators": true,              // 启用装饰器
+    "emitDecoratorMetadata": true,               // 生成装饰器元数据
+
+    // 增量编译
+    "incremental": true,                         // 启用增量编译
+    "tsBuildInfoFile": ".tsbuildinfo"            // 构建信息文件位置
+  },
+
+  // 包含的文件
+  "include": [
+    "src/**/*",                                  // 包含src目录下所有文件
+    "src/**/*.ts",                               // TypeScript文件
+    "src/**/*.tsx",                              // React TypeScript文件
+    "src/**/*.d.ts"                              // 类型声明文件
+  ],
+
+  // 排除的文件
+  "exclude": [
+    "node_modules",                              // 排除node_modules
+    "build",                                     // 排除构建目录
+    "dist",                                      // 排除分发目录
+    "**/*.test.ts",                              // 排除测试文件
+    "**/*.test.tsx",                             // 排除React测试文件
+    "**/*.spec.ts",                              // 排除规范文件
+    "**/*.spec.tsx"                              // 排除React规范文件
+  ],
+
+  // TypeScript项目引用（适用于大型项目）
+  "references": [],
+
+  // 编译器诊断
+  "compileOnSave": false,                        // 保存时不自动编译
+
+  // 类型检查配置
+  "typeAcquisition": {
+    "enable": false,                             // 禁用自动类型获取
+    "include": [],
+    "exclude": []
+  }
+}
