@@ -23,7 +23,7 @@ export interface Message {
 }
 
 // Upload file item types
-export type FileStatus = 'uploading' | 'success' | 'error';
+export type FileStatus = 'pending' | 'uploading' | 'success' | 'error';
 
 export interface FileItem {
   id: string;
