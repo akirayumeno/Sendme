@@ -1,17 +1,31 @@
-import React, { useRef, useEffect, useState } from "react";
-import { Send, Upload, X, File, Image as ImageIcon } from "lucide-react";
+import React, { useRef, useEffect } from "react";
+import {File, Image as ImageIcon, FileVideo, FileAudio, FileText, X, Upload, Send} from "lucide-react";
 import { FileItem, ThemeConfig } from "../../types/type.tsx";
 
 interface InputAreaProps {
   inputText: string;
   setInputText: (text: string) => void;
   files: FileItem[];
-  setFiles: (files: FileItem[]) => void;
+  setFiles: (files: FileItem[] | ((prev: FileItem[]) => FileItem[])) => void;
   onSend: () => void;
   themeConfig: ThemeConfig;
   isUploading?: boolean;
 }
 
+// 获取文件类型图标函数
+const getFileIcon = (fileType: string) => {
+  if (fileType.startsWith('image/')) {
+    return <ImageIcon className="w-5 h-5 text-white" />;
+  } else if (fileType.startsWith('video/')) {
+    return <FileVideo className="w-5 h-5 text-white" />;
+  } else if (fileType.startsWith('audio/')) {
+    return <FileAudio className="w-5 h-5 text-white" />;
+  } else if (fileType === 'application/pdf') {
+    return <FileText className="w-5 h-5 text-white" />;
+  } else {
+    return <File className="w-5 h-5 text-white" />;
+  }
+};
 
 // 圆形进度条组件
 const CircularProgress = ({ progress, size = 40 }: { progress: number; size?: number }) => {
@@ -64,13 +78,14 @@ const CircularProgress = ({ progress, size = 40 }: { progress: number; size?: nu
 const InputArea: React.FC<InputAreaProps> = ({
   inputText,
   setInputText,
+  files,
+  setFiles,
   onSend,
   themeConfig,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
-  const [files, setFiles] = useState<FileItem[]>([]);
+  const uploadingFiles = useRef<Set<string>>(new Set());
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return "0 Bytes";
@@ -82,7 +97,7 @@ const InputArea: React.FC<InputAreaProps> = ({
 
   // 模拟文件上传进度
   const simulateUploadProgress = (fileId: string) => {
-    setUploadingFiles(prev => new Set(prev).add(fileId));
+    uploadingFiles.current.add(fileId);
 
     let progress = 0;
     const interval = setInterval(() => {
@@ -92,7 +107,7 @@ const InputArea: React.FC<InputAreaProps> = ({
         progress = 100;
         clearInterval(interval);
 
-        // 更新文件状态为成功
+        // 更新文件状态为成功 - 修复类型问题
         setFiles(prevFiles =>
           prevFiles.map(file =>
             file.id === fileId
@@ -101,13 +116,9 @@ const InputArea: React.FC<InputAreaProps> = ({
           )
         );
 
-        setUploadingFiles(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(fileId);
-          return newSet;
-        });
+        uploadingFiles.current.delete(fileId)
       } else {
-        // 更新进度
+        // 更新进度 - 修复类型问题
         setFiles(prevFiles =>
           prevFiles.map(file =>
             file.id === fileId
@@ -128,7 +139,7 @@ const InputArea: React.FC<InputAreaProps> = ({
           id: fileId,
           name: file.name,
           type: file.type,
-          status: "uploading",
+          status: "uploading" as const,
           size: formatFileSize(file.size),
           progress: 0,
           file,
@@ -161,7 +172,7 @@ const InputArea: React.FC<InputAreaProps> = ({
             id: fileId,
             name: file.name || 'pasted-image.png',
             type: file.type,
-            status: "uploading",
+            status: "uploading" as const,
             size: formatFileSize(file.size),
             progress: 0,
             file,
@@ -184,7 +195,7 @@ const InputArea: React.FC<InputAreaProps> = ({
           id: fileId,
           name: file.name,
           type: file.type,
-          status: "uploading",
+          status: "uploading" as const,
           size: formatFileSize(file.size),
           progress: 0,
           file,
@@ -201,11 +212,7 @@ const InputArea: React.FC<InputAreaProps> = ({
 
   const removeFile = (fileId: string) => {
     setFiles(files.filter(f => f.id !== fileId));
-    setUploadingFiles(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(fileId);
-      return newSet;
-    });
+    uploadingFiles.current.delete(fileId)
   };
 
   const handleSend = () => {
@@ -236,12 +243,8 @@ const InputArea: React.FC<InputAreaProps> = ({
                     {file.status === 'uploading' ? (
                       <CircularProgress progress={file.progress || 0} />
                     ) : (
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600">
-                        {file.type.startsWith('image/') ? (
-                          <ImageIcon className="w-5 h-5 text-white" />
-                        ) : (
-                          <File className="w-5 h-5 text-white" />
-                        )}
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center">
+                        {getFileIcon(file.type)}
                       </div>
                     )}
                   </div>
@@ -256,23 +259,6 @@ const InputArea: React.FC<InputAreaProps> = ({
                         <p className="text-xs text-gray-500 dark:text-gray-400">
                           {file.size}
                         </p>
-                      </div>
-
-                      {/* 状态指示器 */}
-                      <div className="flex items-center space-x-2">
-                        {file.status === 'success' && (
-                          <div className="flex items-center space-x-1 text-green-600 dark:text-green-400">
-                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                            <span className="text-xs font-medium">Ready</span>
-                          </div>
-                        )}
-
-                        {file.status === 'uploading' && (
-                          <div className="flex items-center space-x-1 text-blue-600 dark:text-blue-400">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                            <span className="text-xs font-medium">Uploading...</span>
-                          </div>
-                        )}
                       </div>
                     </div>
                   </div>
