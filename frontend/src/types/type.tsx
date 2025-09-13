@@ -1,4 +1,5 @@
 // Theme configuration
+
 export interface ThemeConfig {
   themeClasses: string;
   inputClasses: string;
@@ -24,11 +25,17 @@ export interface Message {
 
 // Upload file item types
 export type FileStatus = 'pending' | 'uploading' | 'success' | 'error';
+export type FileType = | 'pdf' | 'doc' | 'docx' | 'xls' | 'xlsx'
+  | 'jpg' | 'jpeg' | 'png' | 'gif'
+  | 'mp4' | 'mov' | 'avi'
+  | 'mp3' | 'wav'
+  | 'zip' | 'rar'
+  | string;
 
 export interface FileItem {
   id: string;
   name: string;
-  type: string;
+  type: FileType;
   status: FileStatus;
   size?: string;
   progress?: number;

@@ -13,18 +13,38 @@ interface InputAreaProps {
 }
 
 // 获取文件类型图标函数
-const getFileIcon = (fileType: string) => {
-  if (fileType.startsWith('image/')) {
-    return <ImageIcon className="w-5 h-5 text-white" />;
-  } else if (fileType.startsWith('video/')) {
-    return <FileVideo className="w-5 h-5 text-white" />;
-  } else if (fileType.startsWith('audio/')) {
-    return <FileAudio className="w-5 h-5 text-white" />;
-  } else if (fileType === 'application/pdf') {
-    return <FileText className="w-5 h-5 text-white" />;
-  } else {
-    return <File className="w-5 h-5 text-white" />;
-  }
+const getFileIcon = (fileName: string, fileType: string) => {
+  const extension = fileName.split('.').pop()?.toLowerCase() || '';
+
+  const iconMap: Record<string, React.ReactNode> = {
+    // 文档
+    'pdf': <FileText className="w-5 h-5 text-white" />,
+    'doc': <FileText className="w-5 h-5 text-white" />,
+    'docx': <FileText className="w-5 h-5 text-white" />,
+    'xls': <FileText className="w-5 h-5 text-white" />,
+    'xlsx': <FileText className="w-5 h-5 text-white" />,
+
+    // 图片
+    'jpg': <ImageIcon className="w-5 h-5 text-white" />,
+    'jpeg': <ImageIcon className="w-5 h-5 text-white" />,
+    'png': <ImageIcon className="w-5 h-5 text-white" />,
+    'gif': <ImageIcon className="w-5 h-5 text-white" />,
+
+    // 视频
+    'mp4': <FileVideo className="w-5 h-5 text-white" />,
+    'mov': <FileVideo className="w-5 h-5 text-white" />,
+
+    // 音频
+    'mp3': <FileAudio className="w-5 h-5 text-white" />,
+    'wav': <FileAudio className="w-5 h-5 text-white" />,
+  };
+
+  return iconMap[extension] || (
+    fileType.startsWith('image/') ? <ImageIcon className="w-5 h-5 text-white" /> :
+    fileType.startsWith('video/') ? <FileVideo className="w-5 h-5 text-white" /> :
+    fileType.startsWith('audio/') ? <FileAudio className="w-5 h-5 text-white" /> :
+    <File className="w-5 h-5 text-white" />
+  );
 };
 
 // 圆形进度条组件
@@ -244,7 +264,7 @@ const InputArea: React.FC<InputAreaProps> = ({
                       <CircularProgress progress={file.progress || 0} />
                     ) : (
                       <div className="w-10 h-10 rounded-full flex items-center justify-center">
-                        {getFileIcon(file.type)}
+                        {getFileIcon(file.name, file.type)}
                       </div>
                     )}
                   </div>
