@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from "react";
 import {File, Image as ImageIcon, FileVideo, FileAudio, FileText, X, Upload, Send} from "lucide-react";
-import { FileItem, ThemeConfig } from "../../types/type.tsx";
+import {FileItem, FileStatus, ThemeConfig} from "../../types/type.tsx";
 
 interface InputAreaProps {
   inputText: string;
@@ -159,11 +159,10 @@ const InputArea: React.FC<InputAreaProps> = ({
           id: fileId,
           name: file.name,
           type: file.type,
-          status: "uploading" as const,
+          status: "uploading" as FileStatus,
           size: formatFileSize(file.size),
           progress: 0,
           file,
-          url: null
         };
       });
 
@@ -192,11 +191,10 @@ const InputArea: React.FC<InputAreaProps> = ({
             id: fileId,
             name: file.name || 'pasted-image.png',
             type: file.type,
-            status: "uploading" as const,
+            status: "uploading" as FileStatus,
             size: formatFileSize(file.size),
             progress: 0,
             file,
-            url: null
           };
           setFiles([...files, newFile]);
           setTimeout(() => simulateUploadProgress(fileId), 100);
@@ -219,7 +217,6 @@ const InputArea: React.FC<InputAreaProps> = ({
           size: formatFileSize(file.size),
           progress: 0,
           file,
-          url: null
         };
       });
       setFiles([...files, ...newFiles]);
@@ -270,8 +267,8 @@ const InputArea: React.FC<InputAreaProps> = ({
                   </div>
 
                   {/* 文件信息 */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
+                  <div className="flex justify-start">
+                    <div className="flex items-center justify-between mb-2">
                       <div>
                         <p className="text-sm font-medium truncate max-w-48">
                           {file.name}
@@ -306,9 +303,15 @@ const InputArea: React.FC<InputAreaProps> = ({
             onPaste={handlePaste}
             onDrop={handleDrop}
             onDragOver={(e) => e.preventDefault()}
-            placeholder="Type a message, paste an image, or drag & drop files..."
+            onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault(); // 阻止默认换行行为
+              handleSend();
+            }
+          }}
+            placeholder="Type a message, or drag & drop files..."
             className={`w-full p-3 border rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${themeConfig.inputClasses}`}
-            rows={1}
+            rows={2}
             style={{ minHeight: '48px', maxHeight: '120px' }}
           />
         </div>
@@ -326,10 +329,10 @@ const InputArea: React.FC<InputAreaProps> = ({
 
           <button
             onClick={() => fileInputRef.current?.click()}
-            className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 border rounded-2xl transition-all duration-200 ${
+            className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 border rounded-2xl transition-all duration-200 focus:outline-none ${
               themeConfig.cardClasses === 'bg-gray-800 border-gray-700' 
-                ? 'border-gray-600 hover:bg-gray-700 active:bg-gray-600' 
-                : 'border-gray-300 hover:bg-gray-50 active:bg-gray-100'
+                ? 'border-gray-600 text-white bg-gray-600 hover:bg-gray-700 hover:text-white active:bg-gray-600'
+                : 'border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-gray-900 active:bg-gray-100'
             }`}
           >
             <Upload className="w-4 h-4" />

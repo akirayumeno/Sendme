@@ -3,7 +3,7 @@ import { useTheme } from "../components/themes/theme.tsx";
 import Header from "../components/header/header.tsx";
 import MessagesList from "../components/messageItem/messagesList.tsx";
 import InputArea from "../components/input/inputArea.tsx";
-import type { Message, FileItem } from "../types/type.tsx";
+import type { Message, FileItem, TextMessage, ImageMessage, FileMessage } from "../types/type.tsx";
 
 // Main App Component
 const SendMeResponsive = () => {
@@ -13,7 +13,7 @@ const SendMeResponsive = () => {
   const [files, setFiles] = useState<FileItem[]>([]);
 
   // Create a text message
-  const createTextMessage = (text: string): Message => ({
+  const createTextMessage = (text: string): TextMessage => ({
     id: Date.now().toString(),
     type: 'text',
     content: text,
@@ -22,15 +22,28 @@ const SendMeResponsive = () => {
     copied: false,
   });
 
-  // Create a file message
-  const createFileMessage = (fileItem: FileItem): Message => ({
+  // Create an image message
+  const createImageMessage = (fileItem: FileItem): ImageMessage => ({
     id: fileItem.id,
-    type: fileItem.type.startsWith('image/') ? 'image' : 'file',
-    content: fileItem.name,
+    type: 'image',
+    imageUrl: fileItem.url || URL.createObjectURL(fileItem.file),
+    caption: fileItem.name,
+    width: undefined,
+    height: undefined,
     timestamp: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
     device: 'desktop',
     copied: false,
-    fileSize: fileItem.size,
+  });
+
+  // Create a file message
+  const createFileMessage = (fileItem: FileItem): FileMessage => ({
+    id: fileItem.id,
+    type: 'file',
+    fileItem: fileItem,
+    description: fileItem.name,
+    timestamp: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+    device: 'desktop',
+    copied: false,
   });
 
   // Send messages (text + successfully uploaded files)
@@ -44,7 +57,11 @@ const SendMeResponsive = () => {
     files
       .filter(f => f.status === 'success')
       .forEach(f => {
-        newMessages.push(createFileMessage(f));
+        if (f.type.startsWith('image/')) {
+          newMessages.push(createImageMessage(f));
+        } else {
+          newMessages.push(createFileMessage(f));
+        }
       });
 
     if (newMessages.length > 0) {
@@ -73,7 +90,7 @@ const SendMeResponsive = () => {
 
   return (
     <div className={`min-h-screen transition-colors duration-200 ${themeConfig.themeClasses}`}>
-      <div className="w-full max-w-4xl mx-auto h-screen flex flex-col">
+      <div className="w-full h-screen flex flex-col">
         <Header
           messageCount={messages.length}
           themeConfig={themeConfig}
