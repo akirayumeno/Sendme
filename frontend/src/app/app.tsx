@@ -26,8 +26,10 @@ const SendMeResponsive = () => {
   const createImageMessage = (fileItem: FileItem): ImageMessage => ({
     id: fileItem.id,
     type: 'image',
+    originalFile: fileItem.file,
     imageUrl: fileItem.url || URL.createObjectURL(fileItem.file),
-    caption: fileItem.name,
+    fileName: fileItem.name,
+    fileSize: fileItem.size,
     width: undefined,
     height: undefined,
     timestamp: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
@@ -40,7 +42,6 @@ const SendMeResponsive = () => {
     id: fileItem.id,
     type: 'file',
     fileItem: fileItem,
-    description: fileItem.name,
     timestamp: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
     device: 'desktop',
     copied: false,
@@ -87,32 +88,31 @@ const SendMeResponsive = () => {
       console.error('Failed to copy: ', err);
     }
   };
+      return (
+        <div className={`min-h-screen transition-colors duration-200 ${themeConfig.themeClasses}`}>
+          <div className="w-full h-screen flex flex-col">
+            <Header
+              messageCount={messages.length}
+              themeConfig={themeConfig}
+            />
 
-  return (
-    <div className={`min-h-screen transition-colors duration-200 ${themeConfig.themeClasses}`}>
-      <div className="w-full h-screen flex flex-col">
-        <Header
-          messageCount={messages.length}
-          themeConfig={themeConfig}
-        />
+            <MessagesList
+              messages={messages}
+              onCopy={handleCopy}
+              themeConfig={themeConfig}
+            />
 
-        <MessagesList
-          messages={messages}
-          onCopy={handleCopy}
-          themeConfig={themeConfig}
-        />
-
-        <InputArea
-          inputText={inputText}
-          setInputText={setInputText}
-          files={files}
-          setFiles={setFiles}
-          onSend={handleSend}
-          themeConfig={themeConfig}
-        />
-      </div>
-    </div>
-  );
-};
+            <InputArea
+              inputText={inputText}
+              setInputText={setInputText}
+              files={files}
+              setFiles={setFiles}
+              onSend={handleSend}
+              themeConfig={themeConfig}
+            />
+          </div>
+        </div>
+      );
+    };
 
 export default SendMeResponsive;

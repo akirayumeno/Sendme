@@ -8,7 +8,6 @@ export interface ThemeConfig {
 }
 
 // Message types
-export type MessageType = 'text' | 'image' | 'file';
 export type DeviceType = 'phone' | 'desktop';
 
 export type Message = TextMessage | ImageMessage | FileMessage;
@@ -29,8 +28,10 @@ export interface TextMessage extends BaseMessage {
 //image message
 export interface ImageMessage extends BaseMessage {
   type: 'image';
+  originalFile: File;
   imageUrl: string;     // url（can be presented）
-  caption?: string;     // option(picture description)
+  fileName: string;
+  fileSize?: string;
   width?: number;       // picture width
   height?: number;      // picture height
 }
@@ -39,7 +40,6 @@ export interface ImageMessage extends BaseMessage {
 export interface FileMessage extends BaseMessage {
   type: 'file';
   fileItem: FileItem;   // file information
-  description?: string; // option(file description)
 }
 
 // Upload file item types

@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from "react";
-import {File, Image as ImageIcon, FileVideo, FileAudio, FileText, X, Upload, Send} from "lucide-react";
+import React, { useRef, useEffect, useState } from "react";
+import {File, Image as ImageIcon, FileVideo, FileAudio, FileText, X, Upload, Send, CheckCheck} from "lucide-react";
 import {FileItem, FileStatus, ThemeConfig} from "../../types/type.tsx";
 
 interface InputAreaProps {
@@ -12,29 +12,29 @@ interface InputAreaProps {
   isUploading?: boolean;
 }
 
-// 获取文件类型图标函数
+// Get file icon based on file name and type
 const getFileIcon = (fileName: string, fileType: string) => {
   const extension = fileName.split('.').pop()?.toLowerCase() || '';
 
   const iconMap: Record<string, React.ReactNode> = {
-    // 文档
+    // Document types
     'pdf': <FileText className="w-5 h-5 text-white" />,
     'doc': <FileText className="w-5 h-5 text-white" />,
     'docx': <FileText className="w-5 h-5 text-white" />,
     'xls': <FileText className="w-5 h-5 text-white" />,
     'xlsx': <FileText className="w-5 h-5 text-white" />,
 
-    // 图片
+    // Image types
     'jpg': <ImageIcon className="w-5 h-5 text-white" />,
     'jpeg': <ImageIcon className="w-5 h-5 text-white" />,
     'png': <ImageIcon className="w-5 h-5 text-white" />,
     'gif': <ImageIcon className="w-5 h-5 text-white" />,
 
-    // 视频
+    // Video types
     'mp4': <FileVideo className="w-5 h-5 text-white" />,
     'mov': <FileVideo className="w-5 h-5 text-white" />,
 
-    // 音频
+    // Audio types
     'mp3': <FileAudio className="w-5 h-5 text-white" />,
     'wav': <FileAudio className="w-5 h-5 text-white" />,
   };
@@ -47,50 +47,96 @@ const getFileIcon = (fileName: string, fileType: string) => {
   );
 };
 
-// 圆形进度条组件
-const CircularProgress = ({ progress, size = 40 }: { progress: number; size?: number }) => {
+// Enhanced progress component with hover cancel and theme support
+interface CircularProgressProps {
+  progress: number;
+  size?: number;
+  onCancel?: () => void;
+  fileName?: string;
+  themeConfig: ThemeConfig;
+}
+
+const CircularProgress = ({ progress, size = 40, onCancel, fileName, themeConfig }: CircularProgressProps) => {
+  const [isHovered, setIsHovered] = useState(false);
   const radius = (size - 4) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
 
+  const handleCancel = () => {
+    if (onCancel && window.confirm(`Are you sure you want to cancel uploading "${fileName}"?`)) {
+      onCancel();
+    }
+  };
+
   return (
-    <div className="relative" style={{ width: size, height: size }}>
-      <svg
-        className="transform -rotate-90"
-        width={size}
-        height={size}
-        viewBox={`0 0 ${size} ${size}`}
-      >
-        {/* 背景圆圈 */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke="currentColor"
-          strokeWidth="3"
-          fill="transparent"
-          className="text-gray-300 dark:text-gray-600"
-        />
-        {/* 进度圆圈 */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke="currentColor"
-          strokeWidth="3"
-          fill="transparent"
-          strokeDasharray={circumference}
-          strokeDashoffset={strokeDashoffset}
-          className="text-blue-500 transition-all duration-300 ease-in-out"
-          strokeLinecap="round"
-        />
-      </svg>
-      {/* 中心百分比文字 */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-          {Math.round(progress)}%
-        </span>
-      </div>
+    <div
+      className="relative cursor-pointer transition-transform hover:scale-105"
+      style={{ width: size, height: size }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onClick={handleCancel}
+    >
+      {!isHovered ? (
+        // Show progress circle
+        <>
+          <svg
+            className="transform -rotate-90"
+            width={size}
+            height={size}
+            viewBox={`0 0 ${size} ${size}`}
+          >
+            {/* Background circle */}
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              stroke="currentColor"
+              strokeWidth="3"
+              fill="transparent"
+              className={themeConfig.cardClasses === 'bg-gray-800 border-gray-700'
+                ? 'text-gray-600'
+                : 'text-gray-300'
+              }
+            />
+            {/* Progress circle */}
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              stroke="currentColor"
+              strokeWidth="3"
+              fill="transparent"
+              strokeDasharray={circumference}
+              strokeDashoffset={strokeDashoffset}
+              className={`transition-all duration-300 ease-in-out ${
+                themeConfig.cardClasses === 'bg-gray-800 border-gray-700' 
+                  ? 'text-blue-400' 
+                  : 'text-blue-500'
+              }`}
+              strokeLinecap="round"
+            />
+          </svg>
+          {/* Center percentage text */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className={`text-xs font-medium ${
+              themeConfig.cardClasses === 'bg-gray-800 border-gray-700' 
+                ? 'text-gray-300' 
+                : 'text-gray-700'
+            }`}>
+              {Math.round(progress)}%
+            </span>
+          </div>
+        </>
+      ) : (
+        // Show cancel button
+        <div className={`w-full h-full rounded-full flex items-center justify-center transition-colors duration-200 shadow-lg ${
+          themeConfig.cardClasses === 'bg-gray-800 border-gray-700' 
+            ? 'bg-red-600 hover:bg-red-700' 
+            : 'bg-red-500 hover:bg-red-600'
+        }`}>
+          <X className="w-5 h-5 text-white" />
+        </div>
+      )}
     </div>
   );
 };
@@ -115,19 +161,19 @@ const InputArea: React.FC<InputAreaProps> = ({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
   };
 
-  // 模拟文件上传进度
+  // Simulate file upload progress
   const simulateUploadProgress = (fileId: string) => {
     uploadingFiles.current.add(fileId);
 
     let progress = 0;
     const interval = setInterval(() => {
-      progress += Math.random() * 15 + 5; // 随机增长5-20%
+      progress += Math.random() * 15 + 5; // Random increment 5-20%
 
       if (progress >= 100) {
         progress = 100;
         clearInterval(interval);
 
-        // 更新文件状态为成功 - 修复类型问题
+        // Update file status to success
         setFiles(prevFiles =>
           prevFiles.map(file =>
             file.id === fileId
@@ -138,7 +184,7 @@ const InputArea: React.FC<InputAreaProps> = ({
 
         uploadingFiles.current.delete(fileId)
       } else {
-        // 更新进度 - 修复类型问题
+        // Update progress
         setFiles(prevFiles =>
           prevFiles.map(file =>
             file.id === fileId
@@ -163,12 +209,13 @@ const InputArea: React.FC<InputAreaProps> = ({
           size: formatFileSize(file.size),
           progress: 0,
           file,
+          url: URL.createObjectURL(file), // Add display URL
         };
       });
 
       setFiles([...files, ...newFiles]);
 
-      // 开始模拟上传进度
+      // Start simulating upload progress
       newFiles.forEach(file => {
         setTimeout(() => simulateUploadProgress(file.id), 100);
       });
@@ -195,6 +242,7 @@ const InputArea: React.FC<InputAreaProps> = ({
             size: formatFileSize(file.size),
             progress: 0,
             file,
+            url: URL.createObjectURL(file),
           };
           setFiles([...files, newFile]);
           setTimeout(() => simulateUploadProgress(fileId), 100);
@@ -217,6 +265,7 @@ const InputArea: React.FC<InputAreaProps> = ({
           size: formatFileSize(file.size),
           progress: 0,
           file,
+          url: URL.createObjectURL(file),
         };
       });
       setFiles([...files, ...newFiles]);
@@ -228,8 +277,25 @@ const InputArea: React.FC<InputAreaProps> = ({
   };
 
   const removeFile = (fileId: string) => {
+    // Find the file to be deleted and clean up URL
+    const fileToRemove = files.find(f => f.id === fileId);
+    if (fileToRemove?.url && fileToRemove.url.startsWith('blob:')) {
+      URL.revokeObjectURL(fileToRemove.url);
+    }
+
     setFiles(files.filter(f => f.id !== fileId));
-    uploadingFiles.current.delete(fileId)
+    uploadingFiles.current.delete(fileId);
+  };
+
+  // Handle upload cancellation
+  const handleCancelUpload = (fileId: string) => {
+    setFiles(prevFiles =>
+      prevFiles.map(file =>
+        file.id === fileId
+          ? { ...file, status: 'error' as FileStatus, error: 'Upload cancelled by user' }
+          : file
+      )
+    );
   };
 
   const handleSend = () => {
@@ -249,52 +315,105 @@ const InputArea: React.FC<InputAreaProps> = ({
   return (
     <div className={`${themeConfig.cardClasses} border-t p-4 sticky bottom-0`}>
       <div className="space-y-3">
-        {/* 改进的文件预览区域 */}
+        {/* File upload area */}
         {files.length > 0 && (
           <div className="space-y-3">
             {files.map(file => (
               <div key={file.id} className={`p-4 ${themeConfig.cardClasses} border rounded-xl shadow-sm`}>
-                <div className="flex items-center space-x-4">
-                  {/* 文件图标或进度条 */}
-                  <div className="flex-shrink-0">
-                    {file.status === 'uploading' ? (
-                      <CircularProgress progress={file.progress || 0} />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center">
-                        {getFileIcon(file.name, file.type)}
-                      </div>
-                    )}
-                  </div>
+                <div className="flex items-center justify-between">
+                  {/* Left side: File icon and info */}
+                  <div className="flex items-center space-x-3 flex-1 min-w-0">
+                    <div className="flex-shrink-0">
+                      {file.type.startsWith('image/') && file.url ? (
+                        <img
+                          src={file.url}
+                          alt={file.name}
+                          className="w-10 h-10 object-cover rounded"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 bg-gray-500 dark:bg-gray-600 rounded-full flex items-center justify-center">
+                          {getFileIcon(file.name, file.type)}
+                        </div>
+                      )}
+                    </div>
 
-                  {/* 文件信息 */}
-                  <div className="flex justify-start">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <p className="text-sm font-medium truncate max-w-48">
-                          {file.name}
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium truncate ${
+                        themeConfig.cardClasses === 'bg-gray-800 border-gray-700' 
+                          ? 'text-gray-100' 
+                          : 'text-gray-900'
+                      }`}>
+                        {file.name}
+                      </p>
+                      <p className={`text-xs ${
+                        themeConfig.cardClasses === 'bg-gray-800 border-gray-700' 
+                          ? 'text-gray-400' 
+                          : 'text-gray-500'
+                      }`}>
+                        {file.size}
+                        {file.status === 'uploading' && ' • Uploading...'}
+                        {file.status === 'success' && ' • Complete'}
+                        {file.status === 'error' && ' • Failed'}
+                      </p>
+                      {file.error && (
+                        <p className={`text-xs mt-1 ${
+                          themeConfig.cardClasses === 'bg-gray-800 border-gray-700' 
+                            ? 'text-red-400' 
+                            : 'text-red-500'
+                        }`}>
+                          {file.error}
                         </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {file.size}
-                        </p>
-                      </div>
+                      )}
                     </div>
                   </div>
 
-                  {/* 改进的删除按钮 */}
-                  <button
-                    onClick={() => removeFile(file.id)}
-                    className="p-2 rounded-full transition-all duration-200 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400"
-                    aria-label="Remove file"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                  {/* Right side: Progress bar or status */}
+                  <div className="flex-shrink-0 ml-3">
+                    {file.status === 'uploading' ? (
+                      <CircularProgress
+                        progress={file.progress || 0}
+                        onCancel={() => handleCancelUpload(file.id)}
+                        fileName={file.name}
+                        themeConfig={themeConfig}
+                      />
+                    ) : file.status === 'success' ? (
+                        <CheckCheck className={`w-5 h-5 ${
+                            themeConfig.cardClasses === 'bg-gray-800 border-gray-700'
+                                ? 'text-green-500'
+                                : 'text-green-600'
+                        }`} />
+                    ) : file.status === 'error' ? (
+                      <button
+                        onClick={() => removeFile(file.id)}
+                        className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
+                          themeConfig.cardClasses === 'bg-gray-800 border-gray-700' 
+                            ? 'bg-red-600 hover:bg-red-700' 
+                            : 'bg-red-500 hover:bg-red-600'
+                        }`}
+                      >
+                        <X className="w-5 h-5 text-white" />
+                      </button>
+                    ) : (
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        themeConfig.cardClasses === 'bg-gray-800 border-gray-700' 
+                          ? 'bg-gray-600' 
+                          : 'bg-gray-300'
+                      }`}>
+                        <span className={`text-sm ${
+                          themeConfig.cardClasses === 'bg-gray-800 border-gray-700' 
+                            ? 'text-gray-400' 
+                            : 'text-gray-500'
+                        }`}>⏳</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         )}
 
-        {/* 文本输入框 */}
+        {/* Input textarea */}
         <div className="relative">
           <textarea
             ref={textareaRef}
@@ -305,7 +424,7 @@ const InputArea: React.FC<InputAreaProps> = ({
             onDragOver={(e) => e.preventDefault()}
             onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault(); // 阻止默认换行行为
+              e.preventDefault(); // Prevent default line break behavior
               handleSend();
             }
           }}
@@ -316,7 +435,7 @@ const InputArea: React.FC<InputAreaProps> = ({
           />
         </div>
 
-        {/* 操作按钮 */}
+        {/* Action buttons */}
         <div className="flex space-x-2">
           <input
             ref={fileInputRef}
