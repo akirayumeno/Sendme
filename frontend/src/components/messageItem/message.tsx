@@ -9,7 +9,7 @@ interface MessageItemProps {
 }
 
 const MessageItem: React.FC<MessageItemProps> = ({ message, onCopy, themeConfig }) => {
-  // image download
+  // Image download handler
     const handleImageDownload = (message: ImageMessage) => {
       try {
         const link = document.createElement('a');
@@ -21,7 +21,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onCopy, themeConfig 
         link.click();
         document.body.removeChild(link);
 
-        // clean URL temporarily
+        // Clean URL temporarily
         setTimeout(() => {
           URL.revokeObjectURL(link.href);
         }, 100);
@@ -31,10 +31,10 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onCopy, themeConfig 
       }
     };
 
-    // file download
+    // File download handler
     const handleFileDownload = (fileItem: FileItem) => {
       if (!fileItem.file) {
-        console.error("Download Error：don't have origin data");
+        console.error("Download Error: Original file data not available");
         return;
       }
 
@@ -53,7 +53,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onCopy, themeConfig 
         }, 100);
 
       } catch (error) {
-        console.error('文件下载失败:', error);
+        console.error('File download failed:', error);
       }
     };
 
@@ -71,7 +71,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onCopy, themeConfig 
     }
   };
 
-  //render text message
+  // Render text message
   const renderTextMessage = (message: TextMessage) => (
     <div className={`${themeConfig.cardClasses} rounded-lg p-4 border`}>
       <div className="flex items-start space-x-3">
@@ -84,11 +84,11 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onCopy, themeConfig 
     </div>
   );
 
-  //render image message
+  // Render image message
   const renderImageMessage = (message: ImageMessage) => (
     <div className={`${themeConfig.cardClasses} rounded-lg p-4 border`}>
       <div className="space-y-3">
-        {/* can present image directly */}
+        {/* Display image directly */}
         <div className="flex justify-center">
           <img
             src={message.imageUrl}
@@ -99,7 +99,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onCopy, themeConfig 
           />
         </div>
 
-        {/* download button */}
+        {/* Action buttons */}
         <div className="flex justify-center space-x-2">
           <button
             onClick={() => window.open(message.imageUrl, '_blank')}
@@ -121,7 +121,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onCopy, themeConfig 
     </div>
   );
 
-  //render file message
+  // Render file message
   const renderFileMessage = (message: FileMessage) => (
     <div className={`${themeConfig.cardClasses} rounded-lg p-4 border`}>
       <div className="space-y-3">
@@ -139,7 +139,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onCopy, themeConfig 
                 </p>
               </div>
 
-              {/* file download button */}
+              {/* File download button */}
               <div className="flex items-center space-x-2 ml-3">
                   <button
                     onClick={() => handleFileDownload(message.fileItem)}
@@ -157,7 +157,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onCopy, themeConfig 
     </div>
   );
 
-  // get the content to copy
+  // Get the content to copy
   const getContentToCopy = (): string => {
   switch (message.type) {
     case 'text':

@@ -181,7 +181,9 @@ const InputArea: React.FC<InputAreaProps> = ({
               : file
           )
         );
-
+        setTimeout(() => {
+            handleFileSend()
+        }, 500)
         uploadingFiles.current.delete(fileId)
       } else {
         // Update progress
@@ -298,8 +300,14 @@ const InputArea: React.FC<InputAreaProps> = ({
     );
   };
 
-  const handleSend = () => {
-    if (inputText.trim() || files.some(f => f.status === 'success')) {
+  const handleTextSend = () => {
+    if (inputText.trim()) {
+      onSend();
+    }
+  };
+
+  const handleFileSend = () => {
+    if (files.some(f => f.status === 'success')) {
       onSend();
     }
   };
@@ -425,7 +433,7 @@ const InputArea: React.FC<InputAreaProps> = ({
             onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault(); // Prevent default line break behavior
-              handleSend();
+              handleTextSend();
             }
           }}
             placeholder="Type a message, or drag & drop files..."
@@ -459,10 +467,10 @@ const InputArea: React.FC<InputAreaProps> = ({
           </button>
 
           <button
-            onClick={handleSend}
-            disabled={!inputText.trim() && !files.some(f => f.status === 'success')}
+            onClick={handleTextSend}
+            disabled={!inputText.trim()}
             className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-2xl transition-all duration-200 font-medium ${
-              (inputText.trim() || files.some(f => f.status === 'success'))
+              (inputText.trim())
                 ? 'bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white'
                 : themeConfig.cardClasses === 'bg-gray-800 border-gray-700'
                   ? 'bg-gray-700 text-gray-500 cursor-not-allowed' 
