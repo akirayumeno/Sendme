@@ -1,5 +1,4 @@
 // Theme configuration
-
 export interface ThemeConfig {
   themeClasses: string;
   inputClasses: string;
@@ -7,52 +6,34 @@ export interface ThemeConfig {
   toggleTheme: () => void;
 }
 
-// Message types
+// Device types
 export type DeviceType = 'phone' | 'desktop';
 
-export type Message = TextMessage | ImageMessage | FileMessage;
+// Message status
+export type MessageStatus = 'uploading' | 'success' | 'error';
 
-export interface BaseMessage {
+// Unified Message interface that handles all content types
+export interface Message {
   id: string;
+  type: 'text' | 'image' | 'file';
+  status: MessageStatus;
+
+  // Text content
+  content?: string;
+
+  // File content (for images and files)
+  file?: File;
+  fileName?: string;
+  fileSize?: string;
+  fileType?: string;
+  imageUrl?: string;
+
+  // Upload progress
+  progress?: number;
+  error?: string;
+
+  // Metadata
   timestamp: string;
   device: DeviceType;
   copied: boolean;
-}
-
-// text message
-export interface TextMessage extends BaseMessage {
-  type: 'text';
-  content: string;  // text content
-}
-
-//image message
-export interface ImageMessage extends BaseMessage {
-  type: 'image';
-  originalFile: File;
-  imageUrl: string;     // url（can be presented）
-  fileName: string;
-  fileSize?: string;
-  width?: number;       // picture width
-  height?: number;      // picture height
-}
-
-//file message
-export interface FileMessage extends BaseMessage {
-  type: 'file';
-  fileItem: FileItem;   // file information
-}
-
-// Upload file item types
-export type FileStatus = 'pending' | 'uploading' | 'success' | 'error';
-
-export interface FileItem {
-  id: string;
-  name: string;
-  type: string;
-  status: FileStatus;
-  size?: string;
-  progress?: number;
-  error?: string;
-  file: File;
-  url?: string;
 }
