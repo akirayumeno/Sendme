@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from pydantic import BaseModel
 from datetime import datetime
 
-from app.sendme_db import get_db, Message
+from app.db.database import get_db, Message
 
 router = APIRouter()
 
@@ -43,7 +43,7 @@ async def get_messages(skip: int = 0, limit: int = 50, db: Session = Depends(get
 @router.post("/", response_model=MessageResponse)
 async def create_message(message: MessageCreate, db: Session = Depends(get_db)):
     """创建新消息"""
-    db_message = Message(**message.dict())
+    db_message = Message(**message.model_dump())
     db.add(db_message)
     db.commit()
     db.refresh(db_message)

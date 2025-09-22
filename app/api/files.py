@@ -1,12 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File as FastAPIFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from typing import List
 import os
 import uuid
 from pathlib import Path
 
-from app.sendme_db import get_db, File, Message
+from app.db.database import get_db, File, Message
 
 router = APIRouter()
 
