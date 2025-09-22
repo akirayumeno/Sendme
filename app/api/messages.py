@@ -4,11 +4,12 @@ from typing import List
 from pydantic import BaseModel
 from datetime import datetime
 
-from app.db.database import get_db, Message
+from app.database import get_db
+from app.models.models import Message
 
-router = APIRouter()
+router_message = APIRouter(prefix="/api/v1/messages", tags=["messages"])
 
-
+# Request model to data receiving
 class MessageCreate(BaseModel):
     device_id: str
     type: str
@@ -17,7 +18,7 @@ class MessageCreate(BaseModel):
     file_size: int = None
     file_path: str = None
 
-
+# Response model to frontend, preventing data leak
 class MessageResponse(BaseModel):
     id: int
     device_id: str
@@ -33,16 +34,16 @@ class MessageResponse(BaseModel):
         from_attributes = True
 
 
-@router.get("/", response_model=List[MessageResponse])
+@router_message.get("/", response_model=List[MessageResponse])
 async def get_messages(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
-    """获取消息列表"""
-    messages = db.query(Message).order_by(Message.timestamp.desc()).offset(skip).limit(limit).all()
+    # get messages
+    messages = db.query(Message).order_by(Message.updated_at.desc()).offset(skip).limit(limit).all()
     return messages
 
 
-@router.post("/", response_model=MessageResponse)
+@router_message.post("/", response_model=MessageResponse)
 async def create_message(message: MessageCreate, db: Session = Depends(get_db)):
-    """创建新消息"""
+    # create new message
     db_message = Message(**message.model_dump())
     db.add(db_message)
     db.commit()
@@ -50,18 +51,18 @@ async def create_message(message: MessageCreate, db: Session = Depends(get_db)):
     return db_message
 
 
-@router.get("/{message_id}", response_model=MessageResponse)
+@router_message.get("/{message_id}", response_model=MessageResponse)
 async def get_message(message_id: int, db: Session = Depends(get_db)):
-    """获取单个消息"""
+    # get a single message
     message = db.query(Message).filter(Message.id == message_id).first()
     if not message:
         raise HTTPException(status_code=404, detail="Message not found")
     return message
 
 
-@router.delete("/{message_id}")
+@router_message.delete("/{message_id}")
 async def delete_message(message_id: int, db: Session = Depends(get_db)):
-    """删除消息"""
+    #  delete a certain message
     message = db.query(Message).filter(Message.id == message_id).first()
     if not message:
         raise HTTPException(status_code=404, detail="Message not found")

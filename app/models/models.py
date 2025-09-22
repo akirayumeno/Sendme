@@ -7,7 +7,7 @@ import enum
 
 Base = declarative_base()
 
-
+# database models
 class MessageType(enum.Enum):
 	text = "text"
 	image = "image"
@@ -43,5 +43,5 @@ class Message(Base):
 
 	# Metadata
 	device = Column(Enum(DeviceType), default=DeviceType.desktop)
-	created_at = Column(DateTime, default=datetime.utcnow)
-	updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+	created_at = Column(DateTime, default=datetime.now())
+	updated_at = Column(DateTime, default=datetime.now(), onupdate=datetime.now())

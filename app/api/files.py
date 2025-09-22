@@ -5,9 +5,9 @@ import os
 import uuid
 from pathlib import Path
 
-from app.db.database import get_db, File, Message
+from app.database import get_db, File, Message
 
-router = APIRouter()
+router_files = APIRouter(prefix="/api/v1/files", tags=["files"])
 
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
 MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", 26214400))  # 25MB

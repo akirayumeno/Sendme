@@ -3,7 +3,7 @@ from typing import Optional
 from datetime import datetime
 from enum import Enum
 
-
+# Data validation and serialization
 class MessageType(str, Enum):
 	text = "text"
 	image = "image"
