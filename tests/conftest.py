@@ -13,13 +13,11 @@ from app.database import Base, get_db  # 导入你的 Base 模型和依赖项函
 # 1. 配置测试数据库
 # --------------------------
 # 注意：这个数据库URL应该指向一个专门用于测试的数据库！
-# 在 Docker Compose 或 CI 中，它可能是 'postgresql://test_user:test_password@db:5432/test_db'
-TEST_DATABASE_URL = "postgresql://test_user:test_password@db:5432/test_db"
+TEST_DATABASE_URL = "postgresql://postgres:password@db:5432/sendme_db"
+print(f"\n--- DEBUG: Connecting URL is: {TEST_DATABASE_URL} ---\n")
 
 # 创建一个测试引擎和会话
-engine = create_engine(
-	TEST_DATABASE_URL, connect_args={"check_same_thread": False}
-)
+engine = create_engine(TEST_DATABASE_URL)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
