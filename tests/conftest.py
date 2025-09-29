@@ -67,7 +67,7 @@ def override_get_db():
 # 4. 定义 FastAPI 测试客户端夹具
 # --------------------------
 
-@pytest.fixture(scope="module")  # module 范围，表示一个测试文件创建一次
+@pytest.fixture(scope="function")  # function 范围，表示每个测试函数都会调用一次
 def client(db_session):
 	"""返回一个可用于发送请求的 FastAPI 测试客户端。"""
 	# 将 FastAPI 应用的依赖项指向我们定义的测试会话
