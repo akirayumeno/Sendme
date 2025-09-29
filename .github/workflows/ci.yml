@@ -28,6 +28,13 @@ jobs:
         run: |
           # 尝试连接数据库，直到成功或超时
           docker compose exec db bash -c 'until pg_isready -U postgres; do sleep 1; done'
+      - name: Cache Python dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
       - name: Install Python dependencies
         run: |
@@ -41,7 +48,7 @@ jobs:
 
       - name: Run Backend Tests
         # 运行所有的 pytest 测试
-        run: pytest
+        run: docker compose run --rm backend pytest
         env:
           # 传递环境变量给测试，比如数据库连接信息 (如果你的测试需要)
           DATABASE_URL: 'postgresql://user:password@db:5432/dbname'
