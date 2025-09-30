@@ -1,7 +1,8 @@
-from pydantic import BaseModel, validator
-from typing import Optional
+from pydantic import BaseModel, field_validator
+from typing import Optional, ClassVar
 from datetime import datetime
 from enum import Enum
+from pydantic import ValidationInfo
 
 # Data validation and serialization
 class MessageType(str, Enum):
@@ -30,8 +31,9 @@ class TextMessageCreate(MessageBase):
 	content: str
 	type: MessageType = MessageType.text
 
-	@validator('content')
-	def content_must_not_be_empty(cls, v):
+	@field_validator('content')
+	@classmethod
+	def content_must_not_be_empty(cls, v: str) -> str:
 		if not v.strip():
 			raise ValueError('Content cannot be empty')
 		return v
@@ -67,9 +69,11 @@ class MessageResponse(BaseModel):
 	class Config:
 		from_attributes = True
 
-	@validator('imageUrl', always=True)
-	def set_image_url(cls, v, values):
+	@field_validator('imageUrl')
+	@classmethod
+	def set_image_url(cls, v, info: ValidationInfo):
 		"""Generate image URL for image types"""
+		values = info.data
 		if values.get('type') == MessageType.image and values.get('filePath'):
 			return f"/files/{values['filePath']}"
 		return v

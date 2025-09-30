@@ -12,9 +12,9 @@ client = TestClient(app)
 
 
 def test_get_messages_empty(client: TestClient):
-	"""测试当数据库中没有消息时，GET /messages 返回一个空列表。"""
+	"""测试当数据库中没有消息时，GET /api/v1/messages 返回一个空列表。"""
 
-	response = client.get("/messages")
+	response = client.get("/api/v1/messages")
 
 	assert response.status_code == 200
 	assert response.json() == []
@@ -32,7 +32,7 @@ def test_get_messages_basic_retrieval(client: TestClient, db_session: Session):
 	db_session.commit()
 
 	# 执行测试：发送 GET 请求
-	response = client.get("/messages")
+	response = client.get("/api/v1/messages")
 
 	# 验证结果
 	assert response.status_code == 200
