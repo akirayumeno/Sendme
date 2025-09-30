@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
@@ -20,15 +22,14 @@ class MessageCreate(BaseModel):
 
 # Response model to frontend, preventing data leak
 class MessageResponse(BaseModel):
-    id: int
+    id: UUID
     device_id: str
     type: str
     content: str = None
     file_name: str = None
     file_size: int = None
     file_path: str = None
-    timestamp: datetime
-    synced: bool
+    created_at: datetime
 
     class Config:
         from_attributes = True

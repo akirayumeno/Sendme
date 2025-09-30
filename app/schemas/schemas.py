@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from pydantic import BaseModel, field_validator
 from typing import Optional, ClassVar
 from datetime import datetime
@@ -54,15 +56,13 @@ class SimulateUploadRequest(BaseModel):
 
 
 class MessageResponse(BaseModel):
-	id: str
+	id: UUID
 	type: MessageType
 	status: MessageStatus
 	content: Optional[str] = None
 	fileName: Optional[str] = None
 	fileSize: Optional[int] = None
-	fileType: Optional[str] = None
 	filePath: Optional[str] = None
-	imageUrl: Optional[str] = None
 	device: DeviceType
 	created_at: datetime
 
