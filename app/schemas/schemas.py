@@ -1,10 +1,8 @@
 from uuid import UUID
-
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, computed_field, field_validator, ValidationInfo
 from typing import Optional, ClassVar
 from datetime import datetime
 from enum import Enum
-from pydantic import ValidationInfo
 
 # Data validation and serialization
 class MessageType(str, Enum):
@@ -56,24 +54,29 @@ class SimulateUploadRequest(BaseModel):
 
 
 class MessageResponse(BaseModel):
+	# UUID 类型是正确的，Pydantic V2 会自动将其序列化为字符串
 	id: UUID
 	type: MessageType
 	status: MessageStatus
 	content: Optional[str] = None
 	fileName: Optional[str] = None
 	fileSize: Optional[int] = None
+	file_type: Optional[str] = None  # 注意：这里应该是 file_type 而不是 fileType (Python 习惯)
 	filePath: Optional[str] = None
 	device: DeviceType
 	created_at: datetime
 
 	class Config:
+		# Pydantic V2 中 from_attributes=True 已经成为默认行为，但保留无害
 		from_attributes = True
 
-	@field_validator('imageUrl')
-	@classmethod
-	def set_image_url(cls, v, info: ValidationInfo):
+	@computed_field
+	@property
+	def imageUrl(self) -> Optional[str]:
 		"""Generate image URL for image types"""
-		values = info.data
-		if values.get('type') == MessageType.image and values.get('filePath'):
-			return f"/files/{values['filePath']}"
-		return v
+
+		# computed_field 方法可以直接通过 self 访问其他字段
+		if self.type == MessageType.image and self.filePath:
+			return f"/files/{self.filePath}"
+
+		return None  # 如果不是 image 或没有 path，返回 None
