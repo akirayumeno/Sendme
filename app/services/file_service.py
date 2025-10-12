@@ -1,10 +1,8 @@
 from fastapi import UploadFile, HTTPException
 from fastapi.responses import FileResponse
-import os
 import aiofiles
 import uuid
 from pathlib import Path
-
 
 class FileService:
 	def __init__(self, upload_dir: str = "uploads"):
