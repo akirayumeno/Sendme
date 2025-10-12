@@ -1,4 +1,4 @@
-from app.api.messages import *
+from app.api.messages_crud import *
 from fastapi import APIRouter
 
 router = APIRouter()

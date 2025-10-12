@@ -1,10 +1,9 @@
 from uuid import UUID
-from pydantic import BaseModel, computed_field, field_validator, ValidationInfo
-from typing import Optional, ClassVar
+from pydantic import BaseModel, computed_field, field_validator
+from typing import Optional
 from datetime import datetime
 from enum import Enum
 
-# Data validation and serialization
 class MessageType(str, Enum):
 	text = "text"
 	image = "image"
@@ -54,29 +53,81 @@ class SimulateUploadRequest(BaseModel):
 
 
 class MessageResponse(BaseModel):
-	# UUID 类型是正确的，Pydantic V2 会自动将其序列化为字符串
-	id: UUID
+	"""Response model that matches frontend Message interface exactly"""
+	id: str
 	type: MessageType
 	status: MessageStatus
+
+	# Text content
 	content: Optional[str] = None
+
+	# File content - matching frontend field names
 	fileName: Optional[str] = None
-	fileSize: Optional[int] = None
-	file_type: Optional[str] = None  # 注意：这里应该是 file_type 而不是 fileType (Python 习惯)
-	filePath: Optional[str] = None
-	device: DeviceType
-	created_at: datetime
+	fileSize: Optional[str] = None
+	fileType: Optional[str] = None
+	imageUrl: Optional[str] = None
+
+	# Upload progress
+	progress: Optional[int] = None
+	error: Optional[str] = None
+
+	# Metadata - matching frontend field names
+	timestamp: str
+	device: str
+	copied: bool = False
 
 	class Config:
-		# Pydantic V2 中 from_attributes=True 已经成为默认行为，但保留无害
 		from_attributes = True
 
 	@computed_field
 	@property
-	def imageUrl(self) -> Optional[str]:
+	def image_url(self) -> Optional[str]:
 		"""Generate image URL for image types"""
+		# This will be set from filePath in the model conversion
+		return None
 
-		# computed_field 方法可以直接通过 self 访问其他字段
-		if self.type == MessageType.image and self.filePath:
-			return f"/files/{self.filePath}"
+	@classmethod
+	def from_db_model(cls, db_message, base_url: str = ""):
+		"""Convert database model to response model with proper formatting"""
+		# Format file size to string with units
+		file_size_str = None
+		if db_message.file_size:
+			file_size_str = cls._format_file_size(db_message.file_size)
 
-		return None  # 如果不是 image 或没有 path，返回 None
+		# Format timestamp to match frontend format
+		timestamp = db_message.created_at.strftime('%I:%M %p')
+
+		# Generate imageUrl for image types
+		image_url = None
+		if db_message.type.value == 'image' and db_message.file_path:
+			image_url = f"{base_url}/files/{db_message.file_path}"
+
+		return cls(
+			id=str(db_message.id),
+			type=db_message.type.value,
+			status=db_message.status.value,
+			content=db_message.content,
+			fileName=db_message.file_name,
+			fileSize=file_size_str,
+			fileType=db_message.file_type,
+			imageUrl=image_url,
+			progress=None,  # Not stored in DB, only used during upload
+			error=None,  # Could be added to DB if needed
+			timestamp=timestamp,
+			device=db_message.device.value,
+			copied=False
+		)
+
+	@staticmethod
+	def _format_file_size(bytes: int) -> str:
+		"""Format bytes to human-readable string"""
+		if bytes == 0:
+			return "0 Bytes"
+		k = 1024
+		sizes = ["Bytes", "KB", "MB", "GB"]
+		i = 0
+		size = float(bytes)
+		while size >= k and i < len(sizes) - 1:
+			size /= k
+			i += 1
+		return f"{round(size, 1)} {sizes[i]}"

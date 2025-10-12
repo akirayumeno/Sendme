@@ -7,7 +7,7 @@ import enum
 
 Base = declarative_base()
 
-# database models
+
 class MessageType(enum.Enum):
 	text = "text"
 	image = "image"
@@ -42,7 +42,6 @@ class Message(Base):
 	file_path = Column(String(500), nullable=True)
 
 	# Metadata
-	device_id = Column(String(255), nullable=True)
 	device = Column(Enum(DeviceType), default=DeviceType.desktop)
 	created_at = Column(DateTime, default=datetime.now())
 	updated_at = Column(DateTime, default=datetime.now(), onupdate=datetime.now())

@@ -5,7 +5,7 @@ import aiofiles
 import uuid
 from pathlib import Path
 
-# service logics
+
 class FileService:
 	def __init__(self, upload_dir: str = "uploads"):
 		self.upload_dir = Path(upload_dir)
