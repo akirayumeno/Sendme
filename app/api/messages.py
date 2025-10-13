@@ -7,10 +7,10 @@ import uuid
 from app.database import get_db
 from app.schemas import schemas
 from app.api import crud
+from app.schemas.schemas import MessageResponse
 from app.services.file_service import FileService
 
 router_messages = APIRouter(
-    prefix="/messages",
     tags=["messages"]
 )
 
@@ -88,11 +88,3 @@ async def delete_message(message_id: str, db: Session = Depends(get_db)):
 async def get_file(file_path: str):
     """Serve uploaded files"""
     return await file_service.get_file(file_path)
-
-@router_messages.post("/simulate-upload")
-async def simulate_upload(file_info: schemas.SimulateUploadRequest):
-    """Simulate file upload with progress updates"""
-    message_id = str(uuid.uuid4())
-    for progress in range(0, 101, 20):
-       await asyncio.sleep(0.1)
-    return {"message_id": message_id, "status": "completed"}

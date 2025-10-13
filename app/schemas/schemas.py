@@ -1,8 +1,12 @@
-from uuid import UUID
-from pydantic import BaseModel, computed_field, field_validator
-from typing import Optional
 from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel, computed_field, field_validator, ConfigDict, Field
+from typing import Optional
 from enum import Enum
+
+BASE_URL = "http://localhost:8000/api/v1"
+
 
 class MessageType(str, Enum):
 	text = "text"
@@ -52,6 +56,20 @@ class SimulateUploadRequest(BaseModel):
 	fileType: str
 
 
+def format_file_size(bytes: int) -> str:
+	"""Format bytes to human-readable string"""
+	if bytes == 0:
+		return "0 Bytes"
+	k = 1024
+	sizes = ["Bytes", "KB", "MB", "GB"]
+	i = 0
+	size = float(bytes)
+	while size >= k and i < len(sizes) - 1:
+		size /= k
+		i += 1
+	return f"{round(size, 1)} {sizes[i]}"
+
+
 class MessageResponse(BaseModel):
 	"""Response model that matches frontend Message interface exactly"""
 	id: str
@@ -62,72 +80,81 @@ class MessageResponse(BaseModel):
 	content: Optional[str] = None
 
 	# File content - matching frontend field names
-	fileName: Optional[str] = None
-	fileSize: Optional[str] = None
-	fileType: Optional[str] = None
-	imageUrl: Optional[str] = None
+	fileName: Optional[str] = Field(None, alias="file_name")
+	fileType: Optional[str] = Field(None, alias="file_type")
+
+	file_path_raw: Optional[str] = Field(None, alias="file_path")
+	file_size_int: Optional[int] = Field(None, alias="file_size", exclude=True)
 
 	# Upload progress
 	progress: Optional[int] = None
 	error: Optional[str] = None
 
-	# Metadata - matching frontend field names
-	timestamp: str
+	# Metadata
+	created_at: datetime
 	device: str
 	copied: bool = False
 
-	class Config:
-		from_attributes = True
+	# Pydantic v2 config
+	model_config = ConfigDict(
+		from_attributes=True,
+		populate_by_name=True,
+		json_encoders={
+			UUID: str
+		},
+	)
+
+	@field_validator('id', mode='before')
+	@classmethod
+	def validate_id(cls, v):
+		# Check if the input value is of type UUID (from the database)
+		if isinstance(v, UUID):
+			return str(v)
+		# Otherwise return it as is (maybe it's already a string, or some other type for Pydantic to handle)
+		return v
 
 	@computed_field
 	@property
-	def image_url(self) -> Optional[str]:
+	def imageUrl(self) -> Optional[str]:
 		"""Generate image URL for image types"""
-		# This will be set from filePath in the model conversion
+		if self.type == MessageType.image and self.file_path_raw:
+			return f"{BASE_URL}/files/{self.file_path_raw}"
 		return None
 
-	@classmethod
-	def from_db_model(cls, db_message, base_url: str = ""):
-		"""Convert database model to response model with proper formatting"""
-		# Format file size to string with units
-		file_size_str = None
-		if db_message.file_size:
-			file_size_str = cls._format_file_size(db_message.file_size)
+	@computed_field
+	@property
+	def fileSize(self) -> Optional[str]:
+		"""Format raw file_size (int) to human-readable string (str)"""
+		if self.file_size_int is not None:
+			return format_file_size(self.file_size_int)
+		return None
 
-		# Format timestamp to match frontend format
-		timestamp = db_message.created_at.strftime('%I:%M %p')
-
-		# Generate imageUrl for image types
-		image_url = None
-		if db_message.type.value == 'image' and db_message.file_path:
-			image_url = f"{base_url}/files/{db_message.file_path}"
-
-		return cls(
-			id=str(db_message.id),
-			type=db_message.type.value,
-			status=db_message.status.value,
-			content=db_message.content,
-			fileName=db_message.file_name,
-			fileSize=file_size_str,
-			fileType=db_message.file_type,
-			imageUrl=image_url,
-			progress=None,  # Not stored in DB, only used during upload
-			error=None,  # Could be added to DB if needed
-			timestamp=timestamp,
-			device=db_message.device.value,
-			copied=False
-		)
-
-	@staticmethod
-	def _format_file_size(bytes: int) -> str:
-		"""Format bytes to human-readable string"""
-		if bytes == 0:
-			return "0 Bytes"
-		k = 1024
-		sizes = ["Bytes", "KB", "MB", "GB"]
-		i = 0
-		size = float(bytes)
-		while size >= k and i < len(sizes) - 1:
-			size /= k
-			i += 1
-		return f"{round(size, 1)} {sizes[i]}"
+	# @classmethod
+	# def from_db_model(cls, db_message):
+	# 	"""
+	# 	Convert database model to response model with proper formatting
+	# 	"""
+	# 	# created_at
+	# 	created_at = db_message.created_at.strftime('%I:%M %p')
+	#
+	# 	# type change
+	# 	message_type = db_message.type.value if hasattr(db_message.type, 'value') else db_message.type
+	# 	status = db_message.status.value if hasattr(db_message.status, 'value') else db_message.status
+	# 	device = db_message.device.value if hasattr(db_message.device, 'value') else db_message.device
+	#
+	# 	# use alias to transfer data（database column）
+	# 	return cls(
+	# 		id=str(db_message.id),
+	# 		type=message_type,
+	# 		status=status,
+	# 		content=db_message.content,
+	# 		file_name=db_message.file_name,  # use alias
+	# 		file_size=db_message.file_size,
+	# 		file_type=db_message.file_type,
+	# 		file_path=db_message.file_path,
+	# 		progress=None,
+	# 		error=None,
+	# 		created_at=created_at,
+	# 		device=device,
+	# 		copied=False
+	# 	)

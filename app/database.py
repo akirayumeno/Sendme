@@ -7,7 +7,7 @@ import os
 # Database URL - use environment variable or default to local PostgreSQL
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql://username:password@localhost:5432/sendme_db"
+    "postgresql://postgres:password@localhost:5432/sendme_db"
 )
 
 engine = create_engine(DATABASE_URL)
