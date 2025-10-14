@@ -5,6 +5,8 @@ import MessagesList from "../components/messageItem/messagesList.tsx";
 import InputArea from "../components/input/inputArea.tsx";
 import type { Message } from "../types/type.tsx";
 
+const API_BASE_URL = 'http://localhost:8000/api/v1'
+
 // Main App Component
 const SendMeResponsive = () => {
   const themeConfig = useTheme();

@@ -50,12 +50,6 @@ class FileMessageCreate(MessageBase):
 	type: MessageType
 
 
-class SimulateUploadRequest(BaseModel):
-	fileName: str
-	fileSize: int
-	fileType: str
-
-
 def format_file_size(bytes: int) -> str:
 	"""Format bytes to human-readable string"""
 	if bytes == 0:
@@ -92,6 +86,7 @@ class MessageResponse(BaseModel):
 
 	# Metadata
 	created_at: datetime
+	updated_at: datetime
 	device: str
 	copied: bool = False
 
@@ -128,33 +123,3 @@ class MessageResponse(BaseModel):
 		if self.file_size_int is not None:
 			return format_file_size(self.file_size_int)
 		return None
-
-	# @classmethod
-	# def from_db_model(cls, db_message):
-	# 	"""
-	# 	Convert database model to response model with proper formatting
-	# 	"""
-	# 	# created_at
-	# 	created_at = db_message.created_at.strftime('%I:%M %p')
-	#
-	# 	# type change
-	# 	message_type = db_message.type.value if hasattr(db_message.type, 'value') else db_message.type
-	# 	status = db_message.status.value if hasattr(db_message.status, 'value') else db_message.status
-	# 	device = db_message.device.value if hasattr(db_message.device, 'value') else db_message.device
-	#
-	# 	# use alias to transfer data（database column）
-	# 	return cls(
-	# 		id=str(db_message.id),
-	# 		type=message_type,
-	# 		status=status,
-	# 		content=db_message.content,
-	# 		file_name=db_message.file_name,  # use alias
-	# 		file_size=db_message.file_size,
-	# 		file_type=db_message.file_type,
-	# 		file_path=db_message.file_path,
-	# 		progress=None,
-	# 		error=None,
-	# 		created_at=created_at,
-	# 		device=device,
-	# 		copied=False
-	# 	)

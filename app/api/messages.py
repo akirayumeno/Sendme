@@ -1,13 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.orm import Session
 from typing import List
-import asyncio
-import uuid
 
 from app.database import get_db
 from app.schemas import schemas
 from app.api import crud
-from app.schemas.schemas import MessageResponse
 from app.services.file_service import FileService
 
 router_messages = APIRouter(
@@ -25,6 +22,19 @@ async def create_text_message(
     db_message = crud.create_text_message(db, message)
     return db_message
 
+
+@router_messages.put("/{message_id}", response_model=schemas.MessageResponse)
+async def update_message(
+        message_id: str,
+        message: schemas.TextMessageCreate,
+        db: Session = Depends(get_db)
+):
+
+    updated_message = crud.update_message(db, message_id, message)
+    if not updated_message:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    return updated_message
 
 @router_messages.post("/upload", response_model=schemas.MessageResponse)
 async def upload_file(
