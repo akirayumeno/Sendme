@@ -15,7 +15,7 @@ interface Message {
   imageUrl?: string;
   progress?: number;
   error?: string;
-  timestamp: string;
+  created_at: string;
   device: string;
   copied: boolean;
 }
@@ -27,7 +27,19 @@ interface MessageItemProps {
 }
 
 const MessageItem: React.FC<MessageItemProps> = ({ message, onCopy, themeConfig }) => {
-  // File download handler
+    // Unified formatting function: Convert ISO string to user-readable local time
+    const formateTime = (isoString: string): string => {
+        try {
+            const date = new Date(isoString)
+            return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+        } catch (e) {
+            return "Invalid Time"
+        }
+    }
+
+    const displayTime = formateTime(message.created_at)
+
+    // File download handler
   const handleDownload = () => {
     if (!message.file) {
       console.error("Download Error: Original file data not available");
@@ -196,7 +208,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onCopy, themeConfig 
             )}
             <span className="capitalize">{message.device}</span>
           </div>
-          <span>{message.timestamp}</span>
+          <span className="created_at">{displayTime}</span>
         </div>
 
         {/* Message content */}

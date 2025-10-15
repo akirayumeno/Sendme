@@ -1,17 +1,36 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTheme } from "../components/themes/theme.tsx";
 import Header from "../components/header/header.tsx";
 import MessagesList from "../components/messageItem/messagesList.tsx";
 import InputArea from "../components/input/inputArea.tsx";
 import type { Message } from "../types/type.tsx";
+import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8000/api/v1'
+const API_BASE_URL = 'http://localhost:8000/api/v1';
 
 // Main App Component
 const SendMeResponsive = () => {
   const themeConfig = useTheme();
   const [inputText, setInputText] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  // Initialize: Fetch all messages from backend
+  useEffect(() => {
+    const fetchMessages = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}`);
+        const data: Message[] = response.data;
+        setMessages(data);
+      } catch (error) {
+        console.error("Error fetching messages:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchMessages();
+  }, []);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return "0 Bytes";
@@ -22,25 +41,57 @@ const SendMeResponsive = () => {
   };
 
   // Send text message
-  const handleTextSend = () => {
-    if (inputText.trim()) {
-      const textMessage: Message = {
-        id: `text_${crypto.randomUUID()}`,
-        type: 'text',
-        status: 'success',
-        content: inputText,
-        timestamp: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
-        device: 'desktop',
-        copied: false,
-      };
+  const handleTextSend = async () => {
+    if (!inputText.trim()) return;
 
-      setMessages(prev => [...prev, textMessage]);
-      setInputText('');
+    const tempId = `text_${crypto.randomUUID()}`;
+    const textMessage: Message = {
+      id: tempId,
+      type: 'text',
+      status: 'uploading',
+      content: inputText,
+      created_at: new Date().toISOString(),
+      device: 'desktop',
+      copied: false,
+    };
+
+    // Optimistic update: Show message immediately
+    setMessages(prev => [...prev, textMessage]);
+    const messageContent = inputText.trim();
+    setInputText('');
+
+    try {
+      const response = await axios.post(`${API_BASE_URL}/messages/text`, {
+        content: messageContent,
+        type: 'text',
+        device: 'desktop'
+      });
+
+      const savedMessage: Message = response.data;
+
+      // Replace temp message with server response
+      setMessages(prev => prev.map(msg =>
+        msg.id === tempId ? { ...savedMessage, status: 'success' } : msg
+      ));
+    } catch (error) {
+      console.error("Error sending message:", error);
+
+      let errorMessage = 'Failed to send';
+      if (axios.isAxiosError(error) && error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      }
+
+      // Update message to error state
+      setMessages(prev => prev.map(msg =>
+        msg.id === tempId
+          ? { ...msg, status: 'error', error: errorMessage }
+          : msg
+      ));
     }
   };
 
-  // Add files and start upload simulation
-  const handleFileUpload = (files: File[]) => {
+  // Upload files
+  const handleFileUpload = async (files: File[]) => {
     const newMessages: Message[] = files.map(file => ({
       id: `file_${crypto.randomUUID()}`,
       type: file.type.startsWith('image/') ? 'image' : 'file',
@@ -51,7 +102,7 @@ const SendMeResponsive = () => {
       fileType: file.type,
       imageUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
       progress: 0,
-      timestamp: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+      created_at: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
       device: 'desktop',
       copied: false,
     }));
@@ -59,30 +110,75 @@ const SendMeResponsive = () => {
     // Add uploading messages immediately
     setMessages(prev => [...prev, ...newMessages]);
 
-    // Simulate upload for each file
-    newMessages.forEach(message => {
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += Math.random() * 20 + 10;
+    // Upload each file
+    for (const message of newMessages) {
+      if (message.file) {
+        await uploadFile(message, message.file);
+      }
+    }
+  };
 
-        if (progress >= 100) {
-          clearInterval(interval);
-          // Mark as complete
+  // Upload single file with progress tracking
+  const uploadFile = async (message: Message, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('device', message.device);
+
+    try {
+      const response = await axios.post(`${API_BASE_URL}/upload`, formData, {
+        onUploadProgress: (progressEvent) => {
+          const total = progressEvent.total ?? file.size;
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / total);
+
+          // Update progress in real-time
           setMessages(prev => prev.map(msg =>
             msg.id === message.id
-              ? { ...msg, status: 'success', progress: 100 }
+              ? { ...msg, progress: percentCompleted }
               : msg
           ));
-        } else {
-          // Update progress
-          setMessages(prev => prev.map(msg =>
-            msg.id === message.id
-              ? { ...msg, progress: Math.round(progress) }
-              : msg
-          ));
+        },
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      const savedMessage: Message = response.data;
+
+      // Replace temp message with server response
+      setMessages(prev => prev.map(msg =>
+        msg.id === message.id
+          ? { ...savedMessage, status: 'success', progress: 100 }
+          : msg
+      ));
+
+      // Clean up blob URL if it's an image
+      if (message.imageUrl && message.imageUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(message.imageUrl);
+      }
+    } catch (error) {
+      console.error(`Upload error for ${file.name}:`, error);
+
+      let errorMessage = 'Upload failed';
+      if (axios.isAxiosError(error)) {
+        if (error.response?.data?.detail) {
+          errorMessage = error.response.data.detail;
+        } else if (error.message) {
+          errorMessage = error.message;
         }
-      }, 150);
-    });
+      }
+
+      // Update to error state
+      setMessages(prev => prev.map(msg =>
+        msg.id === message.id
+          ? {
+              ...msg,
+              status: 'error',
+              progress: 0,
+              error: errorMessage
+            }
+          : msg
+      ));
+    }
   };
 
   // Copy message content to clipboard
@@ -110,11 +206,20 @@ const SendMeResponsive = () => {
           themeConfig={themeConfig}
         />
 
-        <MessagesList
-          messages={messages}
-          onCopy={handleCopy}
-          themeConfig={themeConfig}
-        />
+        {isLoading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-gray-500">Loading messages...</p>
+            </div>
+          </div>
+        ) : (
+          <MessagesList
+            messages={messages}
+            onCopy={handleCopy}
+            themeConfig={themeConfig}
+          />
+        )}
 
         <InputArea
           inputText={inputText}

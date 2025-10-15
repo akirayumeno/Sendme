@@ -33,7 +33,7 @@ export interface Message {
   error?: string;
 
   // Metadata
-  timestamp: string;
+  created_at: string;
   device: DeviceType;
   copied: boolean;
 }
