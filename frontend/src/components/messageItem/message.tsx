@@ -25,6 +25,7 @@ interface MessageItemProps {
   onCopy: (id: string, content: string) => void;
   themeConfig: ThemeConfig;
 }
+const API_BASE_URL = 'http://localhost:8000/api/v1';
 
 const MessageItem: React.FC<MessageItemProps> = ({ message, onCopy, themeConfig }) => {
     // Unified formatting function: Convert ISO string to user-readable local time
@@ -37,10 +38,43 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onCopy, themeConfig 
         }
     }
 
-    const displayTime = formateTime(message.created_at)
+  const displayTime = formateTime(message.created_at)
 
-    // File download handler
+  // File download handler
   const handleDownload = () => {
+    // Use the path provided by the backend
+    const backendFilePath = (message as any).filePath
+    if (backendFilePath) {
+        //url
+        const downloadUrl = `${API_BASE_URL}/files/${backendFilePath}`
+        console.log("Downloading from server:", downloadUrl);
+
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+
+        link.download = message.fileName || 'download';
+
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+
+    } else if (message.file) {
+        // Local memory file download logic (only available when uploading)
+        console.log("Downloading from local memory (only valid before refresh).");
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(message.file);
+        link.download = message.fileName || 'download';
+
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        setTimeout(() => {
+          URL.revokeObjectURL(link.href);
+        }, 100);
+    } else {
+        console.error("Download Error: File path or data not available.");
+    }
     if (!message.file) {
       console.error("Download Error: Original file data not available");
       return;
