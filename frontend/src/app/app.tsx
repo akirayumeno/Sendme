@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { useTheme } from "../components/themes/theme.tsx";
 import Header from "../components/header/header.tsx";
 import MessagesList from "../components/messageItem/messagesList.tsx";
@@ -14,6 +14,13 @@ const SendMeResponsive = () => {
   const [inputText, setInputText] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Automatic scrolling logic: runs when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   // Initialize: Fetch all messages from backend
   useEffect(() => {
@@ -218,6 +225,7 @@ const SendMeResponsive = () => {
             messages={messages}
             onCopy={handleCopy}
             themeConfig={themeConfig}
+            messagesEndRef={messagesEndRef}
           />
         )}
 
