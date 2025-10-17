@@ -36,4 +36,8 @@ class FileService:
 		if not full_path.exists():
 			raise HTTPException(status_code=404, detail="File not found")
 
-		return FileResponse(full_path)
+		download_filename = full_path.name
+		return FileResponse(
+			full_path,
+			filename=download_filename,
+		)

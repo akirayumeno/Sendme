@@ -25,12 +25,6 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onCopy, themeConfig 
   // File download handler
   const handleDownload = () => {
     // Use the path provided by the backend
-    console.log("=== Download Debug ===");
-    console.log("message:", message);
-    console.log("filePath:", message.filePath);
-    console.log("file:", message.file);
-    console.log("imageUrl:", message.imageUrl);
-    console.log("=====================");
     const backendFilePath = message.filePath
     if (backendFilePath) {
         //url
