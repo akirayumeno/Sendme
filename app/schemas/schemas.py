@@ -74,11 +74,11 @@ class MessageResponse(BaseModel):
 	content: Optional[str] = None
 
 	# File content - matching frontend field names
-	fileName: Optional[str] = Field(None, alias="file_name")
-	fileType: Optional[str] = Field(None, alias="file_type")
+	file_name: Optional[str] = Field(None, alias="fileName")
+	file_type: Optional[str] = Field(None, alias="fileType")
 
-	file_path_raw: Optional[str] = Field(None, alias="file_path")
-	file_size_int: Optional[int] = Field(None, alias="file_size", exclude=True)
+	file_path: Optional[str] = Field(None, alias="filePath")
+	file_size: Optional[int] = Field(None, alias="fileSize", exclude=True)
 
 	# Upload progress
 	progress: Optional[int] = None
@@ -112,14 +112,14 @@ class MessageResponse(BaseModel):
 	@property
 	def imageUrl(self) -> Optional[str]:
 		"""Generate image URL for image types"""
-		if self.type == MessageType.image and self.file_path_raw:
-			return f"{BASE_URL}/files/{self.file_path_raw}"
+		if self.type == MessageType.image and self.file_path:
+			return f"{BASE_URL}/files/{self.file_path}"
 		return None
 
 	@computed_field
 	@property
 	def fileSize(self) -> Optional[str]:
 		"""Format raw file_size (int) to human-readable string (str)"""
-		if self.file_size_int is not None:
-			return format_file_size(self.file_size_int)
+		if self.file_size is not None:
+			return format_file_size(self.file_size)
 		return None

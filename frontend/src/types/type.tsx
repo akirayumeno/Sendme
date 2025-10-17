@@ -26,6 +26,7 @@ export interface Message {
   fileName?: string;
   fileSize?: string;
   fileType?: string;
+  filePath?: string;
   imageUrl?: string;
 
   // Upload progress

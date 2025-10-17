@@ -1,24 +1,6 @@
 // Message Item Component - Unified display for all message types
 import { Check, Copy, Monitor, Smartphone, File, Download, ExternalLink, X } from "lucide-react";
-import type { ThemeConfig } from "../../types/type.tsx";
-
-// Simplified Message interface
-interface Message {
-  id: string;
-  type: 'text' | 'image' | 'file';
-  status: 'uploading' | 'success' | 'error';
-  content?: string;
-  file?: File;
-  fileName?: string;
-  fileSize?: string;
-  fileType?: string;
-  imageUrl?: string;
-  progress?: number;
-  error?: string;
-  created_at: string;
-  device: string;
-  copied: boolean;
-}
+import type {Message, ThemeConfig} from "../../types/type.tsx";
 
 interface MessageItemProps {
   message: Message;
@@ -43,7 +25,13 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onCopy, themeConfig 
   // File download handler
   const handleDownload = () => {
     // Use the path provided by the backend
-    const backendFilePath = (message as any).filePath
+    console.log("=== Download Debug ===");
+    console.log("message:", message);
+    console.log("filePath:", message.filePath);
+    console.log("file:", message.file);
+    console.log("imageUrl:", message.imageUrl);
+    console.log("=====================");
+    const backendFilePath = message.filePath
     if (backendFilePath) {
         //url
         const downloadUrl = `${API_BASE_URL}/files/${backendFilePath}`
@@ -57,7 +45,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onCopy, themeConfig 
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
-
+        return;
     } else if (message.file) {
         // Local memory file download logic (only available when uploading)
         console.log("Downloading from local memory (only valid before refresh).");
@@ -72,30 +60,9 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onCopy, themeConfig 
         setTimeout(() => {
           URL.revokeObjectURL(link.href);
         }, 100);
-    } else {
-        console.error("Download Error: File path or data not available.");
+        return;
     }
-    if (!message.file) {
-      console.error("Download Error: Original file data not available");
-      return;
-    }
-
-    try {
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(message.file);
-      link.download = message.fileName || 'download';
-      link.style.display = 'none';
-
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      setTimeout(() => {
-        URL.revokeObjectURL(link.href);
-      }, 100);
-    } catch (error) {
-      console.error('Download failed:', error);
-    }
+    console.error("Download Error: No file path or file data available");
   };
 
   // Get the content to copy
