@@ -1,9 +1,9 @@
 from datetime import datetime
+from enum import Enum
+from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel, computed_field, field_validator, ConfigDict, Field
-from typing import Optional
-from enum import Enum
 
 BASE_URL = "http://localhost:8000/api/v1"
 
@@ -74,11 +74,11 @@ class MessageResponse(BaseModel):
 	content: Optional[str] = None
 
 	# File content - matching frontend field names
-	file_name: Optional[str] = Field(None, alias="fileName")
-	file_type: Optional[str] = Field(None, alias="fileType")
+	file_name: Optional[str] = Field(None, alias = "fileName")
+	file_type: Optional[str] = Field(None, alias = "fileType")
 
-	file_path: Optional[str] = Field(None, alias="filePath")
-	file_size: Optional[int] = Field(None, alias="fileSize", exclude=True)
+	file_path: Optional[str] = Field(None, alias = "filePath")
+	file_size: Optional[int] = Field(None, alias = "fileSize", exclude = True)
 
 	# Upload progress
 	progress: Optional[int] = None
@@ -92,14 +92,14 @@ class MessageResponse(BaseModel):
 
 	# Pydantic v2 config
 	model_config = ConfigDict(
-		from_attributes=True,
-		populate_by_name=True,
-		json_encoders={
-			UUID: str
+		from_attributes = True,
+		populate_by_name = True,
+		json_encoders = {
+			UUID:str
 		},
 	)
 
-	@field_validator('id', mode='before')
+	@field_validator('id', mode = 'before')
 	@classmethod
 	def validate_id(cls, v):
 		# Check if the input value is of type UUID (from the database)

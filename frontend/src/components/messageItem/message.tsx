@@ -1,30 +1,16 @@
-// Message Item Component - Unified display for all message types
-import {Check, Copy, Monitor, Smartphone, File, Download, ExternalLink, X} from "lucide-react";
+// Message Item Component
+import {Check, Copy, Download, ExternalLink, File, Monitor, Smartphone, X} from "lucide-react";
 import type {Message, ThemeConfig} from "../../types/type.tsx";
-import React, {RefObject} from "react";
 
 interface MessageItemProps {
     message: Message,
     onCopy: (id: string, content: string) => void,
-    themeConfig: ThemeConfig,
-    messagesEndRef?: RefObject<HTMLDivElement | null>
+    themeConfig: ThemeConfig
 }
 
 const API_BASE_URL = 'http://localhost:8000/api/v1';
 
-const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, themeConfig, messagesEndRef}) => {
-    // Unified formatting function: Convert ISO string to user-readable local time
-    const formateTime = (isoString: string): string => {
-        try {
-            const date = new Date(isoString)
-            return date.toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit', hour12: true})
-        } catch (e) {
-            return "Invalid Time"
-        }
-    }
-
-    const displayTime = formateTime(message.created_at)
-
+const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, themeConfig}) => {
     // File download handler
     const handleDownload = () => {
         // Use the path provided by the backend
@@ -32,8 +18,6 @@ const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, themeConfig, 
         if (backendFilePath) {
             //url
             const downloadUrl = `${API_BASE_URL}/files/${backendFilePath}`
-            console.log("Downloading from server:", downloadUrl);
-
             const link = document.createElement('a');
             link.href = downloadUrl;
 
@@ -199,16 +183,20 @@ const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, themeConfig, 
             <div
                 className={`${themeConfig.cardClasses} border rounded-xl p-4 transition-all duration-200 hover:shadow-lg`}>
                 {/* Message header */}
-                <div className="flex items-center justify-between mb-3 text-sm opacity-70">
-                    <div className="flex items-center space-x-2">
+                <div className="flex items-center justify-between mb-3 text-sm opacity-80 w-full">
+                    <div className="flex-1"></div>
+
+                    <div className="flex-1 text-center">
+                        <span>{message.created_at}</span>
+                    </div>
+
+                    <div className="flex items-center justify-end space-x-2 flex-1">
                         {message.device === 'phone' ? (
                             <Smartphone className="w-4 h-4"/>
                         ) : (
                             <Monitor className="w-4 h-4"/>
                         )}
-                        <span className="capitalize">{message.device}</span>
                     </div>
-                    <span className="created_at">{displayTime}</span>
                 </div>
 
                 {/* Message content */}
@@ -233,7 +221,6 @@ const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, themeConfig, 
                     )}
                 </div>
             </div>
-            <div ref={messagesEndRef} />
         </div>
     );
 };

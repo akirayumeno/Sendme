@@ -9,13 +9,13 @@ from app.schemas import schemas
 from app.services.file_service import FileService
 
 router_messages = APIRouter(
-	tags=["messages"]
+	tags = ["messages"]
 )
 
 file_service = FileService()
 
 
-@router_messages.post("/text", response_model=schemas.MessageResponse)
+@router_messages.post("/text", response_model = schemas.MessageResponse)
 async def create_text_message(
 		message: schemas.TextMessageCreate,
 		db: Session = Depends(get_db)
@@ -25,7 +25,7 @@ async def create_text_message(
 	return db_message
 
 
-@router_messages.put("/{message_id}", response_model=schemas.MessageResponse)
+@router_messages.put("/{message_id}", response_model = schemas.MessageResponse)
 async def update_message(
 		message_id: str,
 		message: schemas.TextMessageCreate,
@@ -33,12 +33,12 @@ async def update_message(
 ):
 	updated_message = crud.update_message(db, message_id, message)
 	if not updated_message:
-		raise HTTPException(status_code=404, detail="Message not found")
+		raise HTTPException(status_code = 404, detail = "Message not found")
 
 	return updated_message
 
 
-@router_messages.post("/upload", response_model=schemas.MessageResponse)
+@router_messages.post("/upload", response_model = schemas.MessageResponse)
 async def upload_file(
 		file: UploadFile = File(...),
 		device: schemas.DeviceType = schemas.DeviceType.desktop,
@@ -54,38 +54,38 @@ async def upload_file(
 			message_type = schemas.MessageType.file
 
 		message_data = schemas.FileMessageCreate(
-			type=message_type,
-			fileName=file.filename,
-			fileSize=file_info["size"],
-			fileType=file.content_type,
-			filePath=file_info["path"],
-			device=device
+			type = message_type,
+			fileName = file.filename,
+			fileSize = file_info["size"],
+			fileType = file.content_type,
+			filePath = file_info["path"],
+			device = device
 		)
 
 		db_message = crud.create_file_message(db, message_data)
 		return db_message
 
 	except Exception as e:
-		raise HTTPException(status_code=500, detail=str(e))
+		raise HTTPException(status_code = 500, detail = str(e))
 
 
-@router_messages.get("/", response_model=List[schemas.MessageResponse])
+@router_messages.get("/", response_model = List[schemas.MessageResponse])
 async def get_messages(
 		skip: int = 0,
 		limit: int = 100,
 		db: Session = Depends(get_db)
 ):
 	"""Get all messages with pagination"""
-	messages = crud.get_messages(db, skip=skip, limit=limit)
+	messages = crud.get_messages(db, skip = skip, limit = limit)
 	return messages
 
 
-@router_messages.get("/{message_id}", response_model=schemas.MessageResponse)
+@router_messages.get("/{message_id}", response_model = schemas.MessageResponse)
 async def get_message(message_id: str, db: Session = Depends(get_db)):
 	"""Get a specific message by ID"""
 	message = crud.get_message(db, message_id)
 	if not message:
-		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
+		raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = "Message not found")
 	return message
 
 
@@ -94,7 +94,7 @@ async def delete_message(message_id: str, db: Session = Depends(get_db)):
 	"""Delete a message"""
 	success = crud.delete_message(db, message_id)
 	if not success:
-		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
+		raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = "Message not found")
 
 
 @router_messages.get("/files/{file_path:path}")
