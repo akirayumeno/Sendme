@@ -17,7 +17,7 @@ const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, themeConfig})
         const backendFilePath = message.filePath
         if (backendFilePath) {
             //url
-            const downloadUrl = `${API_BASE_URL}/files/${backendFilePath}`
+            const downloadUrl = `${API_BASE_URL}/download/${backendFilePath}`
             const link = document.createElement('a');
             link.href = downloadUrl;
 

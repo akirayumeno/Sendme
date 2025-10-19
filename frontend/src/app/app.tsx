@@ -152,6 +152,7 @@ const SendMeResponsive = () => {
 
     // Upload single file with progress tracking
     const uploadFile = async (message: Message, file: File) => {
+        const tempImageUrl = message.imageUrl;
         const formData = new FormData();
         formData.append('file', file);
         formData.append('device', message.device);
@@ -188,8 +189,8 @@ const SendMeResponsive = () => {
                     : msg
             ));
             // Clean up blob URL if it's an image
-            if (message.imageUrl && message.imageUrl.startsWith('blob:')) {
-                URL.revokeObjectURL(message.imageUrl);
+            if (tempImageUrl && tempImageUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(tempImageUrl);
             }
         } catch (error) {
             console.error(`Upload error for ${file.name}:`, error);
@@ -203,6 +204,11 @@ const SendMeResponsive = () => {
                 }
             }
 
+            // Release the Blob URL even if the upload fails
+            if (tempImageUrl && tempImageUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(tempImageUrl);
+            }
+
             // Update to error state
             setMessages(prev => prev.map(msg =>
                 msg.id === message.id
@@ -210,7 +216,8 @@ const SendMeResponsive = () => {
                         ...msg,
                         status: 'error',
                         progress: 0,
-                        error: errorMessage
+                        error: errorMessage,
+                        imageUrl: undefined
                     }
                     : msg
             ));

@@ -97,7 +97,13 @@ async def delete_message(message_id: str, db: Session = Depends(get_db)):
 		raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = "Message not found")
 
 
-@router_messages.get("/files/{file_path:path}")
+@router_messages.get("/download/{file_path:path}")
 async def get_file(file_path: str):
 	"""Serve uploaded files"""
 	return await file_service.get_file(file_path)
+
+
+@router_messages.get("/view/{file_path:path}")
+async def get_image(file_path: str):
+	"""Serve uploaded images"""
+	return await file_service.get_image(file_path)

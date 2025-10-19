@@ -113,7 +113,7 @@ class MessageResponse(BaseModel):
 	def imageUrl(self) -> Optional[str]:
 		"""Generate image URL for image types"""
 		if self.type == MessageType.image and self.file_path:
-			return f"{BASE_URL}/files/{self.file_path}"
+			return f"{BASE_URL}/view/{self.file_path}"
 		return None
 
 	@computed_field
