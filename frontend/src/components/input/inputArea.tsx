@@ -1,5 +1,5 @@
-import React, {useRef, useEffect} from "react";
-import {Upload, Send} from "lucide-react";
+import React, {useEffect, useRef} from "react";
+import {Send, Upload} from "lucide-react";
 import {ThemeConfig} from "../../types/type.tsx";
 
 interface InputAreaProps {
@@ -109,7 +109,7 @@ const InputArea: React.FC<InputAreaProps> = ({
                         className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 border rounded-2xl transition-all duration-200 focus:outline-none ${
                             themeConfig.cardClasses === 'bg-gray-800 border-gray-700'
                                 ? 'border-gray-600 text-white bg-gray-600 hover:bg-gray-700 hover:text-white active:bg-gray-600'
-                                : 'border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-gray-900 active:bg-gray-100'
+                                : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50 hover:text-gray-900 active:bg-gray-100'
                         }`}
                     >
                         <Upload className="w-4 h-4"/>
