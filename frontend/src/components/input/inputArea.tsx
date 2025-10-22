@@ -69,10 +69,12 @@ const InputArea: React.FC<InputAreaProps> = ({
     }, [inputText]);
 
     return (
-        <div className={`${themeConfig.cardClasses} border-t p-4 rounded-xl bottom-0`}>
-            <div className="space-y-3">
-                {/* Input textarea */}
-                <div className="relative">
+        <div className="space-y-4">
+            <div className="max-w-[50rem] mx-auto">
+                <div className={`${themeConfig.cardClasses} border p-4 rounded-3xl bottom-0`}>
+                    <div className="space-y-3">
+                        {/* Input textarea */}
+                        <div className="relative">
           <textarea
               ref={textareaRef}
               value={inputText}
@@ -91,45 +93,47 @@ const InputArea: React.FC<InputAreaProps> = ({
               rows={1}
               style={{minHeight: '48px', maxHeight: '120px'}}
           />
-                </div>
+                        </div>
 
-                {/* Action buttons */}
-                <div className="flex space-x-2">
-                    <input
-                        ref={fileInputRef}
-                        type="file"
-                        onChange={handleFileInputChange}
-                        className="hidden"
-                        accept="*/*"
-                        multiple
-                    />
+                        {/* Action buttons */}
+                        <div className="flex space-x-2">
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                onChange={handleFileInputChange}
+                                className="hidden"
+                                accept="*/*"
+                                multiple
+                            />
 
-                    <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 border rounded-2xl transition-all duration-200 focus:outline-none ${
-                            themeConfig.cardClasses === 'bg-gray-800 border-gray-700'
-                                ? 'border-gray-600 text-white bg-gray-600 hover:bg-gray-700 hover:text-white active:bg-gray-600'
-                                : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50 hover:text-gray-900 active:bg-gray-100'
-                        }`}
-                    >
-                        <Upload className="w-4 h-4"/>
-                        <span className="font-medium">Upload</span>
-                    </button>
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 border rounded-2xl transition-all duration-200 focus:outline-none ${
+                                    themeConfig.cardClasses === 'bg-gray-800 border-gray-700'
+                                        ? 'border-gray-600 text-white bg-gray-600 hover:bg-gray-700 hover:text-white active:bg-gray-600'
+                                        : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50 hover:text-gray-900 active:bg-gray-100'
+                                }`}
+                            >
+                                <Upload className="w-4 h-4"/>
+                                <span className="font-medium">Upload</span>
+                            </button>
 
-                    <button
-                        onClick={onTextSend}
-                        disabled={!inputText.trim()}
-                        className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-2xl transition-all duration-200 font-medium ${
-                            (inputText.trim())
-                                ? 'bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white'
-                                : themeConfig.cardClasses === 'bg-gray-800 border-gray-700'
-                                    ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                        }`}
-                    >
-                        <Send className="w-4 h-4"/>
-                        <span>Send</span>
-                    </button>
+                            <button
+                                onClick={onTextSend}
+                                disabled={!inputText.trim()}
+                                className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-2xl transition-all duration-200 font-medium ${
+                                    (inputText.trim())
+                                        ? 'bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white'
+                                        : themeConfig.cardClasses === 'bg-gray-800 border-gray-700'
+                                            ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                }`}
+                            >
+                                <Send className="w-4 h-4"/>
+                                <span>Send</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

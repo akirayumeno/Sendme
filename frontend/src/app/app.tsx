@@ -14,7 +14,6 @@ const SendMeResponsive = () => {
     const [inputText, setInputText] = useState<string>('');
     const [messages, setMessages] = useState<Message[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(true);
-
     const messagesEndRef = useRef<HTMLDivElement>(null)
 
     // Automatic scrolling logic: runs when messages change
