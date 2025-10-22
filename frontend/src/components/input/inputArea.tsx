@@ -69,7 +69,7 @@ const InputArea: React.FC<InputAreaProps> = ({
     }, [inputText]);
 
     return (
-        <div className={`${themeConfig.cardClasses} border-t p-4 sticky bottom-0`}>
+        <div className={`${themeConfig.cardClasses} border-t p-4 rounded-xl bottom-0`}>
             <div className="space-y-3">
                 {/* Input textarea */}
                 <div className="relative">
@@ -88,7 +88,7 @@ const InputArea: React.FC<InputAreaProps> = ({
               }}
               placeholder="Type a message, or drag & drop files..."
               className={`w-full p-3 border rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${themeConfig.inputClasses}`}
-              rows={2}
+              rows={1}
               style={{minHeight: '48px', maxHeight: '120px'}}
           />
                 </div>
