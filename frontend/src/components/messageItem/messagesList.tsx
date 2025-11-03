@@ -15,11 +15,7 @@ const MessagesList: React.FC<MessagesListProps> = ({messages, onCopy, themeConfi
             <div className="space-y-4 max-w-3xl mx-auto">
                 {messages.length === 0 ? (
                     <div className="text-center py-12">
-                        <p className={`text-lg ${
-                            themeConfig.cardClasses === 'bg-gray-800 border-gray-700'
-                                ? 'text-gray-400'
-                                : 'text-gray-500'
-                        }`}>
+                        <p className={`text-lg ${themeConfig.cardClasses}`}>
                             No messages yet. Start by typing or uploading files!
                         </p>
                     </div>

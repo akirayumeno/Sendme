@@ -89,7 +89,7 @@ const InputArea: React.FC<InputAreaProps> = ({
                   }
               }}
               placeholder="Type a message, or drag & drop files..."
-              className={`w-full p-3 border rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${themeConfig.inputClasses}`}
+              className={`w-full p-3 border rounded-2xl resize-none transition-all duration-200 ${themeConfig.inputClasses}`}
               rows={1}
               style={{minHeight: '48px', maxHeight: '120px'}}
           />
@@ -109,9 +109,9 @@ const InputArea: React.FC<InputAreaProps> = ({
                             <button
                                 onClick={() => fileInputRef.current?.click()}
                                 className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 border rounded-2xl transition-all duration-200 focus:outline-none ${
-                                    themeConfig.cardClasses === 'bg-gray-800 border-gray-700'
-                                        ? 'border-gray-600 text-white bg-gray-600 hover:bg-gray-700 hover:text-white active:bg-gray-600'
-                                        : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50 hover:text-gray-900 active:bg-gray-100'
+                                    themeConfig.cardClasses === 'bg-gray-800 border-gray-700 text-gray-300'
+                                        ? 'border-gray-700 text-gray-300 bg-gray-800 hover:bg-gray-900 hover:text-white active:bg-gray-600'
+                                        : 'border-gray-300 text-gray-800 bg-white hover:bg-gray-100 active:bg-gray-900'
                                 }`}
                             >
                                 <Upload className="w-4 h-4"/>

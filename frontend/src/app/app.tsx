@@ -29,7 +29,6 @@ const SendMeResponsive = () => {
                 const data: Message[] = response.data.map((msg: any) => {
                     return {
                         ...msg,
-                        copied: false,
                         created_at: formatTimestamp(new Date(msg.created_at)),
                     }
                 });
@@ -79,7 +78,6 @@ const SendMeResponsive = () => {
             content: inputText,
             created_at: formatTimestamp(new Date()),
             device: 'desktop',
-            copied: false,
         };
 
         // Optimistic update: Show message immediately
@@ -135,7 +133,6 @@ const SendMeResponsive = () => {
             progress: 0,
             created_at: formatTimestamp(new Date()),
             device: 'desktop',
-            copied: false,
         }));
 
         // Add uploading messages immediately
@@ -224,21 +221,13 @@ const SendMeResponsive = () => {
     };
 
     // Copy message content to clipboard
-    const handleCopy = async (messageId: string, content: string) => {
+    const handleCopy = async (content: string) => {
         try {
-            await navigator.clipboard.writeText(content);
-            setMessages(prev => prev.map(msg =>
-                msg.id === messageId ? {...msg, copied: true} : msg
-            ));
-            setTimeout(() => {
-                setMessages(prev => prev.map(msg =>
-                    msg.id === messageId ? {...msg, copied: false} : msg
-                ));
-            }, 2000);
+            await navigator.clipboard.writeText(content)
         } catch (err) {
-            console.error('Failed to copy: ', err);
+            console.error('Failed to copy: ', err)
         }
-    };
+    }
 
     return (
         <div className={`min-h-screen transition-colors duration-200 ${themeConfig.themeClasses}`}>
