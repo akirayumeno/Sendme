@@ -5,6 +5,8 @@ import MessagesList from "../components/messageItem/messagesList.tsx";
 import InputArea from "../components/input/inputArea.tsx";
 import type {Message} from "../types/type.tsx";
 import axios from 'axios';
+import Login from "@/components/auth/login.tsx";
+import Register from "@/components/auth/register.tsx";
 
 const API_BASE_URL = 'http://localhost:8000/api/v1';
 
@@ -13,8 +15,27 @@ const SendMeResponsive = () => {
     const themeConfig = useTheme();
     const [inputText, setInputText] = useState<string>('');
     const [messages, setMessages] = useState<Message[]>([]);
+
+    // Auth
+    const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+    const [isRegisterView, setIsRegisterView] = useState<boolean>(false);
+    const [authError, setAuthError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
+    const [authLoading, setAuthLoading] = useState<boolean>(false);
+
     const messagesEndRef = useRef<HTMLDivElement>(null)
+
+    // Initial login in and get messages
+    useEffect(() => {
+        const token = localStorage.getItem('authToken');
+        if (token) {
+            setIsLoggedIn(true);
+            // 假设已登录，继续加载消息
+            fetchMessages();
+        } else {
+            setIsLoading(false); // 如果未登录，停止加载动画，显示登录页
+        }
+    }, []);
 
     // Automatic scrolling logic: runs when messages change
     useEffect(() => {
@@ -64,6 +85,119 @@ const SendMeResponsive = () => {
             timeZone: 'Asia/Tokyo'
         };
         return dateObj.toLocaleTimeString('ja-JP', options);
+    };
+
+    // JWT Auth
+    const fetchMessages = async () => {
+        setIsLoading(true);
+        try {
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                // 如果没有 Token，则不能获取消息
+                setIsLoggedIn(false);
+                setIsLoading(false);
+                return;
+            }
+            const response = await axios.get(`${API_BASE_URL}/messages`, { // 假设消息获取路由为 /messages
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            const data: Message[] = response.data.map((msg: any) => {
+                return {
+                    ...msg,
+                    created_at: formatTimestamp(new Date(msg.created_at)),
+                }
+            });
+            setMessages(data);
+        } catch (error) {
+            console.error("Error fetching messages:", error);
+            // 认证失败或 Token 过期，强制登出
+            handleLogout();
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Log out
+    const handleLogout = () => {
+        localStorage.removeItem('authToken');
+        setIsLoggedIn(false);
+        setMessages([]);
+        setAuthError(null);
+    };
+
+    // Login in
+    const handleLoginAttempt = async (username: string, password: string) => {
+        setAuthError(null);
+        setAuthLoading(true);
+
+        try {
+            const tokenResponse = await axios.post(`${API_BASE_URL}/auth/token`, new URLSearchParams({
+                username: username,
+                password: password,
+            }).toString(), {
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            });
+
+            const {access_token} = tokenResponse.data;
+            localStorage.setItem('authToken', access_token);
+            setIsLoggedIn(true);
+            setIsRegisterView(false);
+
+            // 登录成功后获取消息
+            await fetchMessages();
+
+        } catch (err) {
+            const message = axios.isAxiosError(err) && err.response?.data?.detail
+                ? err.response.data.detail
+                : '登录失败，请检查用户名和密码。';
+            setAuthError(message);
+        } finally {
+            setAuthLoading(false);
+        }
+    };
+
+    // <--- 实现注册 (使用与登录类似的逻辑)
+    const handleRegisterAttempt = async (username: string, password: string) => {
+        setAuthError(null);
+        setAuthLoading(true);
+
+        try {
+            await axios.post(`${API_BASE_URL}/auth/register`, {
+                username: username,
+                password: password,
+            });
+
+            // 注册成功后自动登录
+            await handleLoginAttempt(username, password);
+
+        } catch (err) {
+            const message = axios.isAxiosError(err) && err.response?.data?.detail
+                ? err.response.data.detail
+                : '注册失败，用户名可能已被占用。';
+            setAuthError(message);
+        } finally {
+            setAuthLoading(false);
+        }
+    };
+
+    // 初始化: 检查登录状态并尝试获取消息
+    useEffect(() => {
+        const token = localStorage.getItem('authToken');
+        if (token) {
+            setIsLoggedIn(true);
+            // 如果已登录，则尝试获取消息
+            fetchMessages();
+        } else {
+            setIsLoading(false); // 未登录时停止全局加载
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // 仅在组件挂载时运行一次
+
+    const getTokenHeader = () => {
+        const token = localStorage.getItem('authToken');
+        return token ? {'Authorization': `Bearer ${token}`} : {};
     };
 
     // Send text message
@@ -168,8 +302,10 @@ const SendMeResponsive = () => {
                 },
                 headers: {
                     'Content-Type': 'multipart/form-data',
+                    ...getTokenHeader()
                 },
             });
+            fetchMessages();
 
             const savedMessage: Message = response.data;
 
@@ -229,12 +365,43 @@ const SendMeResponsive = () => {
         }
     }
 
+    if (!isLoggedIn) {
+        // Render the Login or Register page when not logged in.
+        if (isRegisterView) {
+            return (
+                <Register
+                    themeConfig={themeConfig}
+                    onRegisterAttempt={handleRegisterAttempt}
+                    onSwitchToLogin={() => {
+                        setIsRegisterView(false);
+                        setAuthError(null);
+                    }}
+                    error={authError}
+                    isLoading={authLoading}
+                />
+            );
+        }
+
+        return (
+            <Login
+                themeConfig={themeConfig}
+                onLoginAttempt={handleLoginAttempt}
+                onSwitchToRegister={() => {
+                    setIsRegisterView(true);
+                    setAuthError(null);
+                }}
+                error={authError}
+                isLoading={authLoading}
+            />
+        );
+    }
     return (
         <div className={`min-h-screen transition-colors duration-200 ${themeConfig.themeClasses}`}>
             <div className="w-full h-screen flex flex-col">
                 <Header
                     messageCount={messages.filter(m => m.status === 'success').length}
                     themeConfig={themeConfig}
+                    onLogout={handleLogout}
                 />
 
                 {isLoading ? (

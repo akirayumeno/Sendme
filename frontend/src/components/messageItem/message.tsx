@@ -131,14 +131,14 @@ const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, themeConfig})
                             <div className="flex justify-center space-x-2">
                                 <button
                                     onClick={() => window.open(message.imageUrl, '_blank')}
-                                    className={`flex items-center space-x-1 px-3 py-2 text-sm rounded-lg transition-colors ${themeConfig.viewClasses}`}
+                                    className={`flex items-center space-x-1 px-3 py-2 text-sm rounded-lg transition-colors focus:outline-none ${themeConfig.viewClasses}`}
                                 >
                                     <ExternalLink className="w-4 h-4"/>
                                     <span>View Original</span>
                                 </button>
                                 <button
                                     onClick={handleDownload}
-                                    className={`flex items-center space-x-1 px-3 py-2 text-sm rounded-lg transition-colors ${themeConfig.downloadClasses}`}
+                                    className={`flex items-center space-x-1 px-3 py-2 text-sm rounded-lg transition-colors focus:outline-none ${themeConfig.downloadClasses}`}
                                 >
                                     <Download className="w-4 h-4"/>
                                     <span>Download</span>
@@ -236,7 +236,7 @@ const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, themeConfig})
                         <button
                             onClick={copyText}
                             className={`absolute top-2 right-2 p-1.5 w-8 h-8 flex items-center justify-center rounded-lg
-                                       transition-all duration-200 opacity-0 group-hover:opacity-100 focus:outline-none ${
+                                       opacity-0 group-hover:opacity-100 focus:outline-none ${
                                 themeConfig.cardClasses === 'bg-gray-800 border-gray-700 text-gray-300'
                                     ? 'bg-gray-800 hover:bg-black text-gray-300'
                                     : 'bg-white hover:bg-gray-200 text-gray-600'
