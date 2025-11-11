@@ -5,8 +5,8 @@ import MessagesList from "../components/messageItem/messagesList.tsx";
 import InputArea from "../components/input/inputArea.tsx";
 import type {Message} from "../types/type.tsx";
 import axios from 'axios';
-import Login from "@/components/auth/login.tsx";
-import Register from "@/components/auth/register.tsx";
+import Login from "../components/auth/login.tsx";
+import Register from "../components/auth/register.tsx";
 
 const API_BASE_URL = 'http://localhost:8000/api/v1';
 
@@ -145,13 +145,13 @@ const SendMeResponsive = () => {
             setIsLoggedIn(true);
             setIsRegisterView(false);
 
-            // 登录成功后获取消息
+            // login in succeed and send message.s
             await fetchMessages();
 
         } catch (err) {
             const message = axios.isAxiosError(err) && err.response?.data?.detail
                 ? err.response.data.detail
-                : '登录失败，请检查用户名和密码。';
+                : 'Login failed. Please check your username and password.';
             setAuthError(message);
         } finally {
             setAuthLoading(false);

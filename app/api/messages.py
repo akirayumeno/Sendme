@@ -1,11 +1,19 @@
+import uuid
+from datetime import timedelta, timezone, datetime
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.api import crud
+from app.api.crud import get_user, get_password_hash, verify_password, create_access_token, get_current_user
 from app.database import get_db
+from app.main import ACCESS_TOKEN_EXPIRE_MINUTES
+from app.models import models
+from app.models.models import User, Message
 from app.schemas import schemas
+from app.schemas.schemas import UserSchema, UserCreate, Token
 from app.services.file_service import FileService
 
 router_messages = APIRouter(
@@ -18,10 +26,11 @@ file_service = FileService()
 @router_messages.post("/text", response_model = schemas.MessageResponse)
 async def create_text_message(
 		message: schemas.TextMessageCreate,
-		db: Session = Depends(get_db)
+		db: Session = Depends(get_db),
+		current_user: User = Depends(get_current_user)
 ):
 	"""Create a text message"""
-	db_message = crud.create_text_message(db, message)
+	db_message = crud.create_text_message(db, message, current_user)
 	return db_message
 
 
@@ -42,7 +51,8 @@ async def update_message(
 async def upload_file(
 		file: UploadFile = File(...),
 		device: schemas.DeviceType = schemas.DeviceType.desktop,
-		db: Session = Depends(get_db)
+		db: Session = Depends(get_db),
+		current_user: User = Depends(get_current_user)
 ):
 	"""Upload a file and create a file/image message"""
 	try:
@@ -53,13 +63,17 @@ async def upload_file(
 		else:
 			message_type = schemas.MessageType.file
 
-		message_data = schemas.FileMessageCreate(
+		message_data = Message(
+			id = uuid.uuid4(),
+			user_id = current_user.id,
 			type = message_type,
-			fileName = file.filename,
-			fileSize = file_info["size"],
-			fileType = file.content_type,
-			filePath = file_info["path"],
-			device = device
+			file_name = file.filename,
+			file_size = file_info["size"],
+			file_type = file.content_type,
+			file_path = file_info["path"],
+			device = device,
+			status = models.MessageStatus.success,
+			created_at = datetime.now(timezone.utc)
 		)
 
 		db_message = crud.create_file_message(db, message_data)
@@ -73,10 +87,11 @@ async def upload_file(
 async def get_messages(
 		skip: int = 0,
 		limit: int = 100,
-		db: Session = Depends(get_db)
+		db: Session = Depends(get_db),
+		current_user: User = Depends(get_current_user)
 ):
 	"""Get all messages with pagination"""
-	messages = crud.get_messages(db, skip = skip, limit = limit)
+	messages = crud.get_messages(db, skip = skip, limit = limit, current_user = current_user)
 	return messages
 
 
@@ -107,3 +122,41 @@ async def get_file(file_path: str):
 async def get_image(file_path: str):
 	"""Serve uploaded images"""
 	return await file_service.get_image(file_path)
+
+
+# Authentication Routes (/api/v1/auth/...)
+@router_messages.post("/auth/register", response_model = UserSchema, status_code = status.HTTP_201_CREATED)
+def register_user(user: UserCreate, db: Session = Depends(get_db)):
+	"""
+	User registration endpoint: /api/v1/auth/register
+	"""
+	db_user = get_user(db, username = user.username)
+	if db_user:
+		raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Username already registered")
+
+	hashed_password = get_password_hash(user.password)
+	db_user = User(username = user.username, hashed_password = hashed_password)
+	db.add(db_user)
+	db.commit()
+	db.refresh(db_user)
+	return db_user
+
+
+@router_messages.post("/auth/token", response_model = Token)
+def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+	"""
+	Login endpoint: /api/v1/auth/token (Generates JWT)
+	"""
+	user = get_user(db, username = form_data.username)
+	if not user or not verify_password(form_data.password, user.hashed_password):
+		raise HTTPException(
+			status_code = status.HTTP_401_UNAUTHORIZED,
+			detail = "Incorrect username or password",
+			headers = {"WWW-Authenticate":"Bearer"},
+		)
+
+	access_token_expires = timedelta(minutes = ACCESS_TOKEN_EXPIRE_MINUTES)
+	access_token = create_access_token(
+		data = {"sub":user.username}, expires_delta = access_token_expires
+	)
+	return {"access_token":access_token, "token_type":"bearer"}

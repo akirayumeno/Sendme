@@ -43,11 +43,12 @@ class TextMessageCreate(MessageBase):
 
 
 class FileMessageCreate(MessageBase):
+	user_id: int
 	fileName: str
 	fileSize: int
 	fileType: str
 	filePath: str
-	type: MessageType
+	type: str
 
 
 def format_file_size(bytes: int) -> str:
@@ -123,3 +124,30 @@ class MessageResponse(BaseModel):
 		if self.file_size is not None:
 			return format_file_size(self.file_size)
 		return None
+
+
+# User Schemas
+class UserBase(BaseModel):
+	username: str
+
+
+class UserCreate(UserBase):
+	password: str
+
+
+class UserSchema(UserBase):
+	id: int
+	created_at: datetime
+
+	class Config:
+		orm_mode = True
+
+
+# Authentication Token Schema
+class Token(BaseModel):
+	access_token: str
+	token_type: str
+
+
+class TokenData(BaseModel):
+	username: Optional[str] = None

@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from fastapi.security import OAuth2PasswordBearer
+from passlib.context import CryptContext
 # Libraries for JWT authentication and password hashing
 from starlette.middleware.cors import CORSMiddleware
 
@@ -16,7 +18,11 @@ models.Base.metadata.create_all(bind = engine)
 
 app = FastAPI(title = "SendMe API", version = "1.0.0")
 
+# Password hashing context
+pwd_context = CryptContext(schemes = ["bcrypt"], deprecated = "auto")
+
 app.include_router(router_messages, prefix = "/api/v1")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl = "/api/v1/auth/token")
 
 # CORS middleware
 app.add_middleware(

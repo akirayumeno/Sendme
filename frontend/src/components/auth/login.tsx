@@ -55,7 +55,7 @@ const Login: React.FC<LoginProps> = ({themeConfig, onLoginAttempt, onSwitchToReg
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
                             required
-                            className={`w-full p-3 border rounded-xl focus:ring-blue-500 focus:border-blue-500 transition-all duration-150 ${inputClasses}`}
+                            className={`w-full p-3 border rounded-xl focus:ring-blue-500 focus:border-blue-500 ${inputClasses}`}
                             placeholder="Enter your username"
                             disabled={isLoading}
                         />
@@ -75,7 +75,7 @@ const Login: React.FC<LoginProps> = ({themeConfig, onLoginAttempt, onSwitchToReg
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             required
-                            className={`w-full p-3 border rounded-xl focus:ring-blue-500 focus:border-blue-500 transition-all duration-150 ${inputClasses}`}
+                            className={`w-full p-3 border rounded-xl focus:ring-blue-500 focus:border-blue-500 ${inputClasses}`}
                             placeholder="Enter your password"
                             disabled={isLoading}
                         />
