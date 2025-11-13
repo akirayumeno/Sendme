@@ -6,11 +6,12 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from app.api import crud
-from app.api.crud import get_user, get_password_hash, verify_password, create_access_token, get_current_user
 from app.database import get_db
 from app.main import ACCESS_TOKEN_EXPIRE_MINUTES
+from app.models import file_repository
 from app.models import models
+from app.models.file_repository import get_user, get_password_hash, verify_password, create_access_token, \
+	get_current_user
 from app.models.models import User, Message
 from app.schemas import schemas
 from app.schemas.schemas import UserSchema, UserCreate, Token
@@ -30,7 +31,7 @@ async def create_text_message(
 		current_user: User = Depends(get_current_user)
 ):
 	"""Create a text message"""
-	db_message = crud.create_text_message(db, message, current_user)
+	db_message = file_repository.create_text_message(db, message, current_user)
 	return db_message
 
 
@@ -40,7 +41,7 @@ async def update_message(
 		message: schemas.TextMessageCreate,
 		db: Session = Depends(get_db)
 ):
-	updated_message = crud.update_message(db, message_id, message)
+	updated_message = file_repository.update_message(db, message_id, message)
 	if not updated_message:
 		raise HTTPException(status_code = 404, detail = "Message not found")
 
@@ -76,7 +77,7 @@ async def upload_file(
 			created_at = datetime.now(timezone.utc)
 		)
 
-		db_message = crud.create_file_message(db, message_data)
+		db_message = file_repository.create_file_message(db, message_data)
 		return db_message
 
 	except Exception as e:
@@ -91,14 +92,14 @@ async def get_messages(
 		current_user: User = Depends(get_current_user)
 ):
 	"""Get all messages with pagination"""
-	messages = crud.get_messages(db, skip = skip, limit = limit, current_user = current_user)
+	messages = file_repository.get_messages(db, skip = skip, limit = limit, current_user = current_user)
 	return messages
 
 
 @router_messages.get("/{message_id}", response_model = schemas.MessageResponse)
 async def get_message(message_id: str, db: Session = Depends(get_db)):
 	"""Get a specific message by ID"""
-	message = crud.get_message(db, message_id)
+	message = file_repository.get_message(db, message_id)
 	if not message:
 		raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = "Message not found")
 	return message
@@ -107,7 +108,7 @@ async def get_message(message_id: str, db: Session = Depends(get_db)):
 @router_messages.delete("/{message_id}")
 async def delete_message(message_id: str, db: Session = Depends(get_db)):
 	"""Delete a message"""
-	success = crud.delete_message(db, message_id)
+	success = file_repository.delete_message(db, message_id)
 	if not success:
 		raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = "Message not found")
 

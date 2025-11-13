@@ -4,7 +4,7 @@ from passlib.context import CryptContext
 # Libraries for JWT authentication and password hashing
 from starlette.middleware.cors import CORSMiddleware
 
-from app.api.messages import router_messages
+from app.api.router import router_messages
 from app.database import engine
 from app.models import models
 
