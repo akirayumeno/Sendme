@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, computed_field, field_validator, ConfigDict, Field
 
+# DTO (Data Transfer Object)
 BASE_URL = "http://localhost:8000/api/v1"
 
 
