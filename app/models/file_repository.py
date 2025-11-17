@@ -8,7 +8,7 @@ from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 from starlette import status
 
-from app.database import get_db
+from app.core.database import get_db
 from app.main import pwd_context, ACCESS_TOKEN_EXPIRE_MINUTES, SECRET_KEY, ALGORITHM, oauth2_scheme
 from app.models import models
 from app.models.models import User, Message

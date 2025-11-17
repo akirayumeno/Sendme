@@ -5,7 +5,7 @@ from passlib.context import CryptContext
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api.router import router_messages
-from app.database import engine
+from app.core.database import engine
 from app.models import models
 
 # JWT Settings

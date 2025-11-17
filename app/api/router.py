@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.core.database import get_db
 from app.main import ACCESS_TOKEN_EXPIRE_MINUTES
 from app.models import file_repository
 from app.models import models
@@ -82,6 +82,22 @@ async def upload_file(
 
 	except Exception as e:
 		raise HTTPException(status_code = 500, detail = str(e))
+
+
+@router_messages.get("/users/{user_id}/posts/{post_id}", response_model = PostResponse)
+async def get_user_post(post: dict[str, Any] = Depends(valid_owned_post)):
+	return
+
+
+@router_messages.get("/users/{user_id}/posts/{post_id}", response_model = PostResponse)
+async def get_user_post(
+		worker: BackgroundTasks,
+		post: Mapping = Depends(valid_owned_post),
+		user: Mapping = Depends(valid_active_creator),
+):
+	"""Get post that belong the active user."""
+	worker.add_task(notifications_service.send_email, user["id"])
+	return post
 
 
 @router_messages.get("/", response_model = List[schemas.MessageResponse])

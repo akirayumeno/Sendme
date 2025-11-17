@@ -1,29 +1,13 @@
 from datetime import datetime
-from enum import Enum
 from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel, computed_field, field_validator, ConfigDict, Field
 
+from app.core.enums import MessageType, DeviceType
+
 # DTO (Data Transfer Object)
 BASE_URL = "http://localhost:8000/api/v1"
-
-
-class MessageType(str, Enum):
-	text = "text"
-	image = "image"
-	file = "file"
-
-
-class MessageStatus(str, Enum):
-	uploading = "uploading"
-	success = "success"
-	error = "error"
-
-
-class DeviceType(str, Enum):
-	phone = "phone"
-	desktop = "desktop"
 
 
 class MessageBase(BaseModel):
