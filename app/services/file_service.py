@@ -2,9 +2,9 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from app.domain.exceptions import FileMetadataNotFoundError
+from app.core.exceptions import FileMetadataNotFoundError
 from app.domain.models import File
-from app.storage.abstract_repo import AbstractStorageRepo
+from app.storage.abstract_storage_repo import AbstractStorageRepo
 
 
 class FileService:

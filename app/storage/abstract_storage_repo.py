@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 
-class AbstractStorageRepo(ABC):
+class AbstractFileRepo(ABC):
 	"""Abstract storage repository interface."""
 
 	@abstractmethod

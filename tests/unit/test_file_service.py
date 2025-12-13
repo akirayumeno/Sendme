@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import UploadFile
 
-from app.domain.exceptions import FileQuotaExceededError
+from app.core.exceptions import FileQuotaExceededError
 from app.domain.models import File
 from app.services.file_service import FileService
 

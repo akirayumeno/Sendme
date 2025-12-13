@@ -12,8 +12,6 @@ from app.storage.abstract_metadata_repo import AbstractUserRepository, AbstractM
 from app.storage.exceptions import UserNotFoundError
 from app.storage.sqlalchemy_repo import UserRepository, MessageRepository, CapacityRepository
 
-MAX_CAPACITY_BYTES = 100 * 1024 * 1024
-
 
 # Inject Session and instantiate repository
 def get_user_repository(db: Session = Depends(get_db)) -> AbstractUserRepository:
@@ -65,16 +63,13 @@ def get_current_active_user(user: User = Depends(get_current_user)):
 def check_user_capacity(
 		file_size: int,
 		current_user: User = Depends(get_current_active_user),
-		db: Session = Depends(get_db),
-		capacity_repo: AbstractCapacityRepository = Depends(get_capacity_repository)  # 推荐使用 Repository 依赖
+		capacity_repo: AbstractCapacityRepository = Depends(get_capacity_repository)
 ):
 	"""Check the total file size of the current user and the size of the currently uploaded file."""
 	# Check the total file size of the current user
 	user_id = current_user.id
 	used_capacity = capacity_repo.get_used_capacity(user_id)
 	total_capacity = capacity_repo.get_capacity_by_user_id(user_id)
-	if total_capacity is None:
-		total_capacity = MAX_CAPACITY_BYTES
 
 	# Check if the total capacity is exceeded.
 	if used_capacity + file_size > total_capacity:

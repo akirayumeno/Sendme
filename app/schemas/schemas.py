@@ -4,9 +4,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, computed_field, field_validator, ConfigDict, Field
 
-from app.core.enums import MessageType, DeviceType
+from app.core.enums import MessageType, DeviceType, MessageStatus
 
-# DTO (Data Transfer Object)
+# DTO (Data Transfer Object) for Service layer and API layer
 BASE_URL = "http://localhost:8000/api/v1"
 
 

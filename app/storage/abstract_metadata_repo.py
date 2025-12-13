@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import Optional, List
 
-from app.core.orm_models import Message, User
+from app.core.orm_models import Message, User, RefreshToken
 
 
 class AbstractUserRepository(ABC):
@@ -39,9 +40,10 @@ class AbstractMessageRepository(ABC):
 	def delete_message(self, message_id: int):
 		raise NotImplementedError
 
-
-class AbstractCapacityRepository(ABC):
-	"""Abstract capacity repository interface."""
+	# ---Capacity---
+	@abstractmethod
+	def get_user_with_capacity_lock(self, user_id: int) -> Optional[int]:
+		raise NotImplementedError
 
 	@abstractmethod
 	def get_used_capacity(self, user_id: int) -> Optional[int]:
@@ -53,4 +55,29 @@ class AbstractCapacityRepository(ABC):
 
 	@abstractmethod
 	def update_used_capacity(self, user_id: int, byte_change: int):
+		raise NotImplementedError
+
+
+class AbstractRefreshTokenRepository(ABC):
+	"""Abstract refresh token repository interface."""
+
+	@abstractmethod
+	def create_token_record(self, user_id: int, token_jti: str, expires_at: datetime) -> RefreshToken:
+		raise NotImplementedError
+
+	@abstractmethod
+	def get_unused_token(self, token_jti: str) -> Optional[RefreshToken]:
+		raise NotImplementedError
+
+	@abstractmethod
+	def mark_token_as_used(self, token_jti: str) -> RefreshToken:
+		raise NotImplementedError
+
+	@abstractmethod
+	def delete_token_record(self, token_jti: str) -> bool:
+		raise NotImplementedError
+
+	@abstractmethod
+	def delete_all_user_tokens(self, user_id: int) -> int:
+		"""Delete all unused refresh tokens for the user (force exit all devices)"""
 		raise NotImplementedError

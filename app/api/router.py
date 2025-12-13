@@ -7,21 +7,31 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.dependencies import get_user_repository
+from app.core.orm_models import User
 from app.main import ACCESS_TOKEN_EXPIRE_MINUTES
 from app.models import file_repository
 from app.models import models
 from app.models.file_repository import get_user, get_password_hash, verify_password, create_access_token, \
 	get_current_user
-from app.models.models import User, Message
 from app.schemas import schemas
 from app.schemas.schemas import UserSchema, UserCreate, Token
+from app.services import file_service
+from app.services.auth_service import AuthService
 from app.services.file_service import FileService
+from app.storage.exceptions import UserConstraintError
 
 router_messages = APIRouter(
 	tags = ["messages"]
 )
 
-file_service = FileService()
+
+def get_auth_service(user_repo = Depends(get_user_repository)):
+	return AuthService(user_repo)
+
+
+def get_file_service(user_repo = Depends(get_user_repository)):
+	return FileService(user_repo)
 
 
 @router_messages.post("/text", response_model = schemas.MessageResponse)
@@ -84,22 +94,6 @@ async def upload_file(
 		raise HTTPException(status_code = 500, detail = str(e))
 
 
-@router_messages.get("/users/{user_id}/posts/{post_id}", response_model = PostResponse)
-async def get_user_post(post: dict[str, Any] = Depends(valid_owned_post)):
-	return
-
-
-@router_messages.get("/users/{user_id}/posts/{post_id}", response_model = PostResponse)
-async def get_user_post(
-		worker: BackgroundTasks,
-		post: Mapping = Depends(valid_owned_post),
-		user: Mapping = Depends(valid_active_creator),
-):
-	"""Get post that belong the active user."""
-	worker.add_task(notifications_service.send_email, user["id"])
-	return post
-
-
 @router_messages.get("/", response_model = List[schemas.MessageResponse])
 async def get_messages(
 		skip: int = 0,
@@ -147,16 +141,12 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
 	"""
 	User registration endpoint: /api/v1/auth/register
 	"""
-	db_user = get_user(db, username = user.username)
-	if db_user:
-		raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Username already registered")
+	try:
+		user = register_user(db, username = user.username, password = user.password)
+		return {"message":"User registered successfully", "user_id":user.id}
 
-	hashed_password = get_password_hash(user.password)
-	db_user = User(username = user.username, hashed_password = hashed_password)
-	db.add(db_user)
-	db.commit()
-	db.refresh(db_user)
-	return db_user
+	except UserConstraintError as e:
+		raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = str(e)) from e
 
 
 @router_messages.post("/auth/token", response_model = Token)
