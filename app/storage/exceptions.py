@@ -5,14 +5,14 @@ class RepositoryError(Exception):
 
 class UserNotFoundErrorById(RepositoryError):
 	def __init__(self, user_id):
-		super().__init__(f"User {user_id} Not found in the database.")
 		self.user_id = user_id
+		super().__init__(f"User {user_id} Not found in the database.")
 
 
 class UserNotFoundErrorByName(RepositoryError):
 	def __init__(self, username):
-		super().__init__(f"User {username} Not found in the database.")
 		self.username = username
+		super().__init__(f"User {username} Not found in the database.")
 
 
 class UserConstraintError(RepositoryError):

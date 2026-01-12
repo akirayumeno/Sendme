@@ -2,57 +2,89 @@ name: CI / Backend Tests
 
 on:
   push:
-    branches: [ "main", "master" ] # 每次推送到 main 或 master 分支时触发
+    branches: [ "main", "master" ]
   pull_request:
-    branches: [ "main", "master" ] # 每次创建或更新拉取请求时触发
+    branches: [ "main", "master" ]
 
 jobs:
-  backend-test:
-    runs-on: ubuntu-latest # 在最新的 Ubuntu 虚拟机上运行
-
+  lint:
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4 # 检出你的代码
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Ruff
+        run: pip install ruff
+      - name: Run Ruff Check
+        run: ruff check .
+
+  unit-tests:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
+      - name: Run Unit Tests
+        env:
+          DATABASE_URL: "sqlite:///:memory:"
+          JWT_SECRET: "test-secret-key"
+        run: pytest tests/unit --cov=app --cov-report=xml
+
+  integration-tests:
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start Services (DB & Redis)
+        # initiate database and Redis container
+        run: docker compose up -d db redis
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11' # 使用你项目所需的 Python 版本
+          python-version: '3.11'
 
-      - name: Start services (DB and Redis)
-        # 使用 docker-compose 命令启动数据库和 Redis
-        run: docker compose -f docker-compose.yml up -d db redis
-
-      - name: Wait for PostgreSQL to be ready
-        # 等待数据库启动并接受连接（非常重要，防止连接失败）
+      - name: Install dependencies
         run: |
-          # 尝试连接数据库，直到成功或超时
-          docker compose exec db bash -c 'until pg_isready -U postgres; do sleep 1; done'
-      - name: Cache Python dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest httpx # 安装测试工具
+          pip install pytest alembic psycopg2-binary
 
-      - name: Run Alembic migrations
-        # 在运行测试前执行数据库迁移，确保表结构最新
-        run: docker compose run --rm backend alembic -c /app/alembic.ini upgrade head
+      - name: Wait for Postgres
+        run: |
+          until docker compose exec db pg_isready -U postgres; do
+            echo "Waiting for database..."
+            sleep 2
+          done
 
-      - name: Run Backend Tests
-        # 运行所有的 pytest 测试
-        run: docker compose run --rm backend pytest
+      - name: Run Alembic Migrations
         env:
-          # 传递环境变量给测试，比如数据库连接信息 (如果你的测试需要)
-          DATABASE_URL: 'postgresql://user:password@db:5432/dbname'
+          DATABASE_URL: "postgresql://postgres:password@localhost:5432/db"
+        run: alembic upgrade head
 
-# 如果你有前端测试 (npm test)，可以添加另一个 job:
-# frontend-test:
-#   ...
+      - name: Run Integration Tests
+        env:
+          DATABASE_URL: "postgresql://postgres:password@localhost:5432/db"
+          REDIS_URL: "redis://localhost:6379/0"
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        run: pytest tests/integration
+
+  coverage:
+    needs: [ unit-tests ]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true

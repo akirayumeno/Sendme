@@ -1,12 +1,16 @@
 # src.auth.config
 from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict  # Pydantic V2 推荐
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+	DATABASE_URL: str = Field(
+		default = "postgresql://user:password@localhost:5432/local_db",
+		description = "Database connection string"
+	)
 	# --- JWT ---
 	SECRET_KEY: str = Field(
-		default = "your-insecure-development-key-please-change-it-in-env",
+		default = "dangerous-default-key-replace-me-in-env",
 		description = "The key used for JWT signing must be a strongly random value in a production environment."
 	)
 	ALGORITHM: str = "HS256"

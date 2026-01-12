@@ -26,14 +26,14 @@ class UserRepository(AbstractUserRepository):
 		"""Retrieve the user from the database based on the user ID."""
 		user = self.db.query(User).filter(User.id == user_id).first()
 		if user is None:
-			raise UserNotFoundErrorById(user_id = user_id)
+			raise UserNotFoundErrorById(user_id)
 		return user
 
 	def get_user_by_username(self, username: str) -> Optional[User]:
 		"""Find a user by username (used for login verification)"""
 		user = self.db.query(User).filter(User.username == username).first()
 		if user is None:
-			raise UserNotFoundErrorByName(username = username)
+			raise UserNotFoundErrorByName(username)
 		return user
 
 	def create_user(self, username: str, hashed_password: str) -> User:
@@ -55,6 +55,7 @@ class UserRepository(AbstractUserRepository):
 	def update_user(self, user_id: int, updates: dict) -> User:
 		"""Update a user record in the database."""
 		user = self.get_user_by_id(user_id)
+		current_uid = user.id
 		for key, value in updates.items():
 			if hasattr(user, key):
 				setattr(user, key, value)
@@ -64,17 +65,17 @@ class UserRepository(AbstractUserRepository):
 			return user
 		except IntegrityError as e:
 			self.db.rollback()
-			raise UserConstraintError(f"Update failed due to constraint violation {user_id}.") from e
+			raise UserConstraintError(f"Update failed due to constraint violation {current_uid}.") from e
 		except Exception as e:
 			self.db.rollback()
-			raise RepositoryError(f"Error updating user{user_id}.") from e
+			raise RepositoryError(f"Error updating user{current_uid}.") from e
 
 	# ---Capacity method---
 	def get_user_with_capacity_lock(self, user_id: int) -> User:
 		# Pessimistic Locking to guarantee the atomicity of capacity updates
 		user = self.db.query(User).filter(User.id == user_id).with_for_update().first()
 		if user is None:
-			raise UserNotFoundErrorById(user_id = user_id)
+			raise UserNotFoundErrorById(user_id)
 		return user
 
 	def get_capacity_by_user_id(self, user_id: int) -> Optional[int]:
@@ -154,7 +155,7 @@ class MessageRepository(AbstractMessageRepository):
 	def hard_delete_message(self, message_id: int) -> Optional[int]:
 		"""Permanently delete the message record and return the number of bytes occupied by the message (used for capacity deduction)."""
 		result = self.db.query(
-			Message.file_size,
+			Message.file_size_bytes,
 			Message.is_deleted
 		).filter(Message.id == message_id).first()
 		if not result:
@@ -169,7 +170,6 @@ class MessageRepository(AbstractMessageRepository):
 			deleted_count = self.db.query(Message).filter(
 				Message.id == message_id
 			).delete(synchronize_session = 'fetch')
-			self.db.commit()
 			if deleted_count == 0:
 				return None
 			self.db.commit()

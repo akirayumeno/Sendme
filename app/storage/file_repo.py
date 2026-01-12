@@ -50,7 +50,7 @@ class FileRepo:
 		"""Delete a file/image message."""
 		full_path = self.upload_dir / file_path
 
-		if full_path.exists():
+		if await aios.path.exists(full_path):
 			try:
 				await aios.remove(full_path)
 				return True

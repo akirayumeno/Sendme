@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Optional, List
 
+from app.core.enums import MessageStatus
 from app.core.orm_models import Message, User, RefreshToken
 
 
@@ -18,6 +19,23 @@ class AbstractUserRepository(ABC):
 
 	@abstractmethod
 	def create_user(self, username: str, hashed_password: str) -> User:
+		raise NotImplementedError
+
+	# ---Capacity---
+	@abstractmethod
+	def get_user_with_capacity_lock(self, user_id: int) -> Optional[int]:
+		raise NotImplementedError
+
+	@abstractmethod
+	def get_used_capacity(self, user_id: int) -> Optional[int]:
+		raise NotImplementedError
+
+	@abstractmethod
+	def get_capacity_by_user_id(self, user_id: int) -> Optional[int]:
+		raise NotImplementedError
+
+	@abstractmethod
+	def update_used_capacity(self, user_id: int, byte_change: int):
 		raise NotImplementedError
 
 
@@ -37,24 +55,19 @@ class AbstractMessageRepository(ABC):
 		raise NotImplementedError
 
 	@abstractmethod
-	def delete_message(self, message_id: int):
-		raise NotImplementedError
-
-	# ---Capacity---
-	@abstractmethod
-	def get_user_with_capacity_lock(self, user_id: int) -> Optional[int]:
+	def update_message(self, message_id: int, status: MessageStatus):
 		raise NotImplementedError
 
 	@abstractmethod
-	def get_used_capacity(self, user_id: int) -> Optional[int]:
+	def soft_delete_message(self, message_id: int):
 		raise NotImplementedError
 
 	@abstractmethod
-	def get_capacity_by_user_id(self, user_id: int) -> Optional[int]:
+	def restore_message(self, message_id: int) -> Message:
 		raise NotImplementedError
 
 	@abstractmethod
-	def update_used_capacity(self, user_id: int, byte_change: int):
+	def hard_delete_message(self, message_id: int) -> Optional[int]:
 		raise NotImplementedError
 
 

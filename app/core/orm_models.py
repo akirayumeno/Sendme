@@ -2,14 +2,12 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import Column, String, Integer, Text, DateTime, ForeignKey, Boolean, func
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Uuid
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import Enum as SQLAlchemyEnum
 
+from app.core.database import Base
 from app.core.enums import MessageType, MessageStatus, DeviceType
-
-Base = declarative_base()
 
 
 # Define the properties and behaviors of objects such as File and User.
@@ -31,9 +29,9 @@ class Message(Base):
 	content = Column(Text, nullable = True)
 
 	# File content
-	file_id = Column(UUID(as_uuid = True), default = uuid.uuid4, nullable = True)
+	file_id = Column(Uuid(as_uuid = True), default = uuid.uuid4, nullable = True)
 	file_name = Column(String(255), nullable = True)
-	file_size = Column(Integer, nullable = True)
+	file_size_bytes = Column(Integer, nullable = True)
 	file_path = Column(String(500), nullable = True)
 	original_filename = Column(String(255), nullable = True)
 

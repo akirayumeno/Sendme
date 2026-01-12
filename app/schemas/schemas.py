@@ -1,10 +1,11 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Annotated
 from uuid import UUID
 
 from pydantic import BaseModel, computed_field, field_validator, ConfigDict, Field
 
 from app.core.enums import MessageType, DeviceType, MessageStatus
+from app.core.utils import format_file_size
 
 # DTO (Data Transfer Object) for Service layer and API layer
 BASE_URL = "http://localhost:8000/api/v1"
@@ -29,29 +30,19 @@ class TextMessageCreate(MessageBase):
 
 class FileMessageCreate(MessageBase):
 	user_id: int
-	fileName: str
-	fileSize: int
-	fileType: str
-	filePath: str
-	type: str
+	file_name: str = Field(..., alias = "fileName")
+	file_size: int = Field(..., gt = 0, alias = "fileSize")  # file size > 0
+	file_type: str = Field(..., alias = "fileType")
+	file_path: str = Field(..., alias = "filePath")
+	type: MessageType = MessageType.file  # default as file
 
-
-def format_file_size(bytes: int) -> str:
-	"""Format bytes to human-readable string"""
-	if bytes == 0:
-		return "0 Bytes"
-	k = 1024
-	sizes = ["Bytes", "KB", "MB", "GB"]
-	i = 0
-	size = float(bytes)
-	while size >= k and i < len(sizes) - 1:
-		size /= k
-		i += 1
-	return f"{round(size, 1)} {sizes[i]}"
+	model_config = ConfigDict(populate_by_name = True)
 
 
 class MessageResponse(BaseModel):
 	"""Response model that matches frontend Message interface exactly"""
+	model_config = ConfigDict(from_attributes = True, populate_by_name = True)
+
 	id: str
 	type: MessageType
 	status: MessageStatus
@@ -64,7 +55,7 @@ class MessageResponse(BaseModel):
 	file_type: Optional[str] = Field(None, alias = "fileType")
 
 	file_path: Optional[str] = Field(None, alias = "filePath")
-	file_size: Optional[int] = Field(None, alias = "fileSize", exclude = True)
+	file_size_bytes: Optional[int] = Field(None, alias = "fileSize", exclude = True)
 
 	# Upload progress
 	progress: Optional[int] = None
@@ -73,26 +64,13 @@ class MessageResponse(BaseModel):
 	# Metadata
 	created_at: datetime
 	updated_at: datetime
-	device: str
+	device: DeviceType
 	copied: bool = False
-
-	# Pydantic v2 config
-	model_config = ConfigDict(
-		from_attributes = True,
-		populate_by_name = True,
-		json_encoders = {
-			UUID:str
-		},
-	)
 
 	@field_validator('id', mode = 'before')
 	@classmethod
 	def validate_id(cls, v):
-		# Check if the input value is of type UUID (from the database)
-		if isinstance(v, UUID):
-			return str(v)
-		# Otherwise return it as is (maybe it's already a string, or some other type for Pydantic to handle)
-		return v
+		return str(v) if isinstance(v, UUID) else v
 
 	@computed_field
 	@property
@@ -106,26 +84,24 @@ class MessageResponse(BaseModel):
 	@property
 	def fileSize(self) -> Optional[str]:
 		"""Format raw file_size (int) to human-readable string (str)"""
-		if self.file_size is not None:
-			return format_file_size(self.file_size)
-		return None
+		return format_file_size(self.file_size_bytes) if self.file_size_bytes else None
 
 
 # User Schemas
 class UserBase(BaseModel):
-	username: str
+	# Usernames are restricted to contain only letters, numbers, and underscores, and must be 3-20 characters long.
+	username: Annotated[str, Field(min_length = 3, max_length = 20, pattern = r"^[a-zA-Z0-9_]+$")]
 
 
 class UserCreate(UserBase):
-	password: str
+	password: str = Field(..., min_length = 8, description = "Password must be at least 8 characters")
 
 
 class UserSchema(UserBase):
 	id: int
 	created_at: datetime
 
-	class Config:
-		orm_mode = True
+	model_config = ConfigDict(from_attributes = True)
 
 
 # Authentication Token Schema
