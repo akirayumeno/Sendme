@@ -9,7 +9,7 @@ class MessageType(StrEnum):
 
 
 class MessageStatus(StrEnum):
-	uploaded = "UPLOADED"
+	sent = "SENT"
 	processing = "PROCESSING"
 	deleted = "DELETED"
 	failed = "FAILED"

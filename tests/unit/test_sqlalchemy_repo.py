@@ -1,9 +1,12 @@
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
 import pytest
 
-from app.storage.exceptions import UserNotFoundErrorById, UserConstraintError, UserNotFoundErrorByName, RepositoryError
-from app.storage.sqlalchemy_repo import UserRepository
+from app.core.enums import MessageType, MessageStatus
+from app.storage.exceptions import UserNotFoundErrorById, UserConstraintError, UserNotFoundErrorByName, RepositoryError, \
+	MessageNotFoundError
+from app.storage.sqlalchemy_repo import UserRepository, MessageRepository, RefreshTokenRepository
 
 
 # --------------------------
@@ -179,3 +182,117 @@ def test_get_user_with_capacity_lock_not_found(user_db):
 
 	# Check if the error message contains an incorrect ID.
 	assert "9999" in str(excinfo.value)
+
+
+# ---------------------------------------------------------
+# Message Logic Test
+# ---------------------------------------------------------
+def test_create_message_success(db_session):
+	repo = MessageRepository(db_session)
+	data = {
+		"user_id":1,
+		"type":MessageType.text,
+		"content":"Hello World",
+		"status":MessageStatus.sent,
+		"file_size_bytes":0
+	}
+
+	msg = repo.create_message(data)
+	assert msg.id is not None
+	assert msg.content == "Hello World"
+	assert msg.is_deleted is False
+
+
+def test_get_message_not_found(db_session):
+	repo = MessageRepository(db_session)
+	with pytest.raises(MessageNotFoundError):
+		repo.get_message_by_message_id(999)
+
+
+def test_soft_delete_and_restore(db_session):
+	repo = MessageRepository(db_session)
+	msg = repo.create_message({"user_id":1, "type":MessageType.text, "content":"test"})
+
+	# soft delete
+	repo.soft_delete_message(msg.id)
+	assert repo.get_message_by_message_id(msg.id).is_deleted is True
+
+	# restore
+	repo.restore_message(msg.id)
+	assert repo.get_message_by_message_id(msg.id).is_deleted is False
+
+
+def test_hard_delete_logic(db_session):
+	repo = MessageRepository(db_session)
+	# create a 5MB message
+	file_size = 5 * 1024 * 1024
+	msg = repo.create_message(
+		{
+			"user_id":1,
+			"type":MessageType.file,
+			"file_size_bytes":file_size,
+			"is_deleted":False
+		}
+	)
+
+	# 1. An attempt to perform a hard delete (without marking it as a soft delete) should return 0.
+	size = repo.hard_delete_message(msg.id)
+	assert size == 0
+
+	# 2. If you mark a soft delete and then perform a hard delete, the original size should be returned.
+	repo.soft_delete_message(msg.id)
+	size = repo.hard_delete_message(msg.id)
+	assert size == file_size
+
+	# 3. A subsequent query should throw a Not Found exception.
+	with pytest.raises(MessageNotFoundError):
+		repo.get_message_by_message_id(msg.id)
+
+
+# ---------------------------------------------------------
+# Token repo Test
+# ---------------------------------------------------------
+def test_create_and_get_unused_token(db_session):
+	repo = RefreshTokenRepository(db_session)
+	jti = "test-jti-123"
+	expires = datetime.now() + timedelta(days = 1)
+
+	repo.create_token_record(user_id = 1, token_jti = jti, expires_at = expires)
+
+	token = repo.get_unused_token(jti)
+	assert token.jti == jti
+	assert token.is_used is False
+
+
+def test_get_expired_token_fails(db_session):
+	repo = RefreshTokenRepository(db_session)
+	jti = "expired-jti"
+	# Set to expire 1 hour ago
+	expires = datetime.now(timezone.utc) - timedelta(hours = 1)
+	repo.create_token_record(user_id = 1, token_jti = jti, expires_at = expires)
+
+	# The repository is likely not found because `expires_at < now()` (throwing a `RepositoryError`).
+	with pytest.raises(RepositoryError, match = "not found or already used"):
+		repo.get_unused_token(jti)
+
+
+def test_mark_token_as_used(db_session):
+	repo = RefreshTokenRepository(db_session)
+	jti = "use-me"
+	repo.create_token_record(user_id = 1, token_jti = jti, expires_at = datetime.now() + timedelta(days = 1))
+
+	repo.mark_token_as_used(jti)
+
+	# Retrieving the item again after marking it should fail.
+	with pytest.raises(RepositoryError):
+		repo.get_unused_token(jti)
+
+
+def test_delete_all_user_tokens(db_session):
+	repo = RefreshTokenRepository(db_session)
+	user_id = 100
+	repo.create_token_record(user_id, "jti1", datetime.now() + timedelta(days = 1))
+	repo.create_token_record(user_id, "jti2", datetime.now() + timedelta(days = 1))
+
+	count = repo.delete_all_user_tokens(user_id)
+	assert count == 2

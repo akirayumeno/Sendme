@@ -81,3 +81,15 @@ class FileDeleteError(RepositoryError):
 
 		super().__init__(message)
 		self.file_path = file_path
+
+
+class CapacityExceededError(RepositoryError):
+	"""File read failure."""
+
+	def __init__(self, used_quota_bytes: str, original_exception: Exception = None):
+		message = f"The capacity is exceeded from {used_quota_bytes}."
+		if original_exception:
+			message += f" Original error: {original_exception.__class__.__name__}"
+
+		super().__init__(message)
+		self.used_quota_bytes = used_quota_bytes
