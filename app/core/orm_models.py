@@ -55,6 +55,8 @@ class User(Base):
 	used_quota_bytes = Column(Integer, default = 0)
 	hashed_password = Column(String, nullable = False)
 	is_verified = Column(Boolean, nullable = False, default = False)
+	github_id = Column(String(255), nullable = True, unique = True)  # sso
+	google_id = Column(String(255), nullable = True, unique = True)  # sso
 	created_at = Column(DateTime, default = datetime.now(timezone.utc))
 	updated_at = Column(
 		DateTime(timezone = True), default = lambda:datetime.now(timezone.utc),
