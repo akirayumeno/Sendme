@@ -4,7 +4,7 @@ from starlette import status
 from starlette.exceptions import HTTPException
 
 from app.api.router import get_auth_service
-from app.services.auth_service import AuthService
+from app.core.security import AuthService
 from app.services.exceptions import ServiceError
 
 router_messages = APIRouter(

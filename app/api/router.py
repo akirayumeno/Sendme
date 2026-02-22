@@ -2,6 +2,10 @@ import uuid
 from datetime import timedelta, timezone, datetime
 from typing import List
 
+from app.models import file_repository
+from app.models import models
+from app.models.file_repository import get_user, get_password_hash, verify_password, create_access_token, \
+	get_current_user
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -9,15 +13,11 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.dependencies import get_user_repository
 from app.core.orm_models import User
+from app.core.security import AuthService
 from app.main import ACCESS_TOKEN_EXPIRE_MINUTES
-from app.models import file_repository
-from app.models import models
-from app.models.file_repository import get_user, get_password_hash, verify_password, create_access_token, \
-	get_current_user
 from app.schemas import schemas
 from app.schemas.schemas import UserSchema, UserCreate, Token
 from app.services import file_service
-from app.services.auth_service import AuthService
 from app.services.file_service import FileService
 from app.storage.exceptions import UserConstraintError
 

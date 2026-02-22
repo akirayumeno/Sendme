@@ -39,8 +39,6 @@ class UserRepository(AbstractUserRepository):
 		"""Find a user by username (used for login verification)."""
 		result = await self.db.execute(select(User).filter(User.username == username))
 		user = result.scalars().first()
-		# Note: We don't raise UserNotFoundErrorByName here because
-		# AuthService needs to handle 'None' for registration checks.
 		return user
 
 	async def create_user(self, username: str, hashed_password: str) -> User:
@@ -171,7 +169,6 @@ class RefreshTokenRepository(AbstractRefreshTokenRepository):
 			jti = token_jti,
 			user_id = user_id,
 			expires_at = expires_at,
-			is_used = False
 		)
 		try:
 			self.db.add(new_token)
@@ -185,7 +182,6 @@ class RefreshTokenRepository(AbstractRefreshTokenRepository):
 	async def get_unused_token(self, token_jti: str) -> Optional[RefreshToken]:
 		stmt = select(RefreshToken).filter(
 			RefreshToken.jti == token_jti,
-			RefreshToken.is_used == False,
 			RefreshToken.expires_at > func.now()
 		)
 		result = await self.db.execute(stmt)
@@ -193,17 +189,6 @@ class RefreshTokenRepository(AbstractRefreshTokenRepository):
 		if not unused_token:
 			raise RepositoryError(f"Refresh Token {token_jti} not found or already used.")
 		return unused_token
-
-	async def mark_token_as_used(self, token_jti: str) -> Optional[RefreshToken]:
-		unused_token = await self.get_unused_token(token_jti)
-		try:
-			unused_token.is_used = True
-			await self.db.commit()
-			await self.db.refresh(unused_token)
-			return unused_token
-		except Exception as e:
-			await self.db.rollback()
-			raise RepositoryError(f"Error marking token {token_jti} as used: {e}")
 
 	async def delete_token_record(self, token_jti: str) -> bool:
 		try:
@@ -216,10 +201,7 @@ class RefreshTokenRepository(AbstractRefreshTokenRepository):
 
 	async def delete_all_user_tokens(self, user_id: int) -> int:
 		try:
-			stmt = delete(RefreshToken).filter(
-				RefreshToken.user_id == user_id,
-				RefreshToken.is_used == False
-			)
+			stmt = delete(RefreshToken).where(RefreshToken.user_id == user_id)
 			result = await self.db.execute(stmt)
 			await self.db.commit()
 			return result.rowcount

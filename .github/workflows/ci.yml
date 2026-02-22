@@ -58,6 +58,7 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install pytest alembic psycopg2-binary
+          pip install sqlalchemy aiosqlite pytest-asyncio greenlet aiosmtplib jinja2
 
       - name: Wait for Postgres
         run: |

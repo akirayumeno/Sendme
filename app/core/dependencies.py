@@ -7,10 +7,8 @@ from starlette import status
 from app.core.database import get_db
 from app.core.exceptions import CREDENTIALS_EXCEPTION
 from app.core.orm_models import User
-from app.storage.abstract_metadata_repo import AbstractUserRepository, AbstractMessageRepository, \
-	AbstractCapacityRepository
-from app.storage.exceptions import UserNotFoundError
-from app.storage.sqlalchemy_repo import UserRepository, MessageRepository, CapacityRepository
+from app.storage.abstract_metadata_repo import AbstractUserRepository, AbstractMessageRepository
+from app.storage.sqlalchemy_repo import UserRepository, MessageRepository
 
 
 # Inject Session and instantiate repository
@@ -20,10 +18,6 @@ def get_user_repository(db: Session = Depends(get_db)) -> AbstractUserRepository
 
 def get_message_repository(db: Session = Depends(get_db)) -> AbstractMessageRepository:
 	return MessageRepository(db)
-
-
-def get_capacity_repository(db: Session = Depends(get_db)) -> AbstractCapacityRepository:
-	return CapacityRepository(db)
 
 
 def jwt_verify(

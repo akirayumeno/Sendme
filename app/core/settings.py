@@ -8,6 +8,13 @@ class Settings(BaseSettings):
 		default = "postgresql://user:password@localhost:5432/local_db",
 		description = "Database connection string"
 	)
+
+	# --- SMTP ---
+	SMTP_SERVER: str = Field(default = "smtp.gmail.com", description = "SMTP server host")
+	SMTP_PORT: int = Field(default = 587, description = "SMTP server port")
+	SMTP_EMAIL: str = Field(default = "your-email@gmail.com", description = "Sender email address")
+	SMTP_CODE: str = Field(default = "", description = "SMTP app password/auth code")
+
 	# --- JWT ---
 	SECRET_KEY: str = Field(
 		default = "dangerous-default-key-replace-me-in-env",
@@ -22,6 +29,12 @@ class Settings(BaseSettings):
 	# --- Service Capacity Configuration ---
 	# Define the default maximum capacity limit (1G)
 	DEFAULT_MAX_CAPACITY_BYTES: int = 1024 * 1024 * 1024
+
+	# --- Auth (OTP) ---
+	OTP_EXPIRATION_SECONDS: int = 300
+
+	# --- Message DELETE TTL ---
+	MESSAGE_TTL_SECONDS: int = 86400
 
 	# Pydantic V2 Configuration
 	model_config = SettingsConfigDict(

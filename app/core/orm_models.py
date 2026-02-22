@@ -74,7 +74,6 @@ class RefreshToken(Base):
 	jti = Column(String(36), primary_key = True, index = True, nullable = False)
 	user_id = Column(Integer, ForeignKey("users.id"), nullable = False)
 	expires_at = Column(DateTime(timezone = True), nullable = False)
-	is_used = Column(Boolean, nullable = False, default = False)
 	created_at = Column(DateTime, default = datetime.now(timezone.utc), server_default = func.now())
 	user = relationship("User", back_populates = "refresh_tokens")
 

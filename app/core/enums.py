@@ -13,6 +13,7 @@ class MessageStatus(StrEnum):
 	processing = "PROCESSING"
 	deleted = "DELETED"
 	failed = "FAILED"
+	expired = "EXPIRED"
 
 
 class DeviceType(StrEnum):
