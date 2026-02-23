@@ -5,6 +5,7 @@ from fastapi import UploadFile
 from app.core.orm_models import Message
 from app.core.settings import settings
 from app.schemas.schemas import FileMessageCreate
+from app.services.exceptions import QuotaExceededError
 from app.storage.file_repo import FileRepo
 from app.storage.sqlalchemy_repo import MessageRepository, UserRepository
 
@@ -32,9 +33,7 @@ class FileService:
 		# Check capacity
 		current_used = await self.user_repo.get_used_capacity(user_id)
 		if current_used + (file.size or 0) > settings.DEFAULT_MAX_CAPACITY_BYTES:
-			raise QuotaExceededError(
-				
-			)
+			raise QuotaExceededError()
 
 		# Stream the file to the temp folder via Repo
 		# If the connection is aborted, FileRepo handles the cleanup internally
@@ -47,7 +46,27 @@ class FileService:
 			"mime_type":file.content_type
 		}
 
-	async def finalize_file_message(self, schema: FileMessageCreate) -> Message:
+	async def finalize_file_message(
+			self,
+			schema: FileMessageCreate,
+			temp_filename: str,
+			file_size: int
+	) -> Message:
+		# 1. Physical existence check
+		temp_path = self.file_repo.temp_dir / temp_filename
+		if not temp_path.exists():
+			raise FileNotFoundError(f"Temporary file {temp_filename} not found.")
+
+		# 2. Logic & Safety Check (The method you extracted)
+		# We use schema.user_id to ensure we are checking the right person
+		await self._check_quota(schema.user_id, temp_filename, file_size)
+
+		# 3. Physical Move: Temp -> Final
+		# Using the path from schema (populated by handle_initial_upload or controller)
+		await self.file_repo.move_to_final(temp_filename, schema.file_path)
+
+		# 4. Database Persistence
+		# schema.model_dump() already contains the finalized file_path and metadata
 		return await self.message_repo.create_message(schema.model_dump())
 
 	async def cancel_pending_upload(self, temp_filename: str):
@@ -76,3 +95,19 @@ class FileService:
 		# 3. Remove the metadata record (or mark as is_deleted=True for soft delete)
 		deleted_size = await self.message_repo.delete_message(message_id)
 		return deleted_size is not None
+
+	async def _check_quota(self, user_id: int, temp_filename: str, file_size: int):
+		"""
+		Internal helper to verify user quota before finalizing.
+		Raises UserQuotaExceededError and cleans up temp file if check fails.
+		"""
+
+		current_used = await self.user_repo.get_used_capacity(user_id)
+
+		if current_used + file_size > settings.DEFAULT_MAX_CAPACITY_BYTES:
+			# Cleanup: Don't leave garbage in temp if we're going to reject it
+			await self.file_repo.delete_temp(temp_filename)
+			raise QuotaExceededError(
+				f"Quota exceeded. Available: {settings.DEFAULT_MAX_CAPACITY_BYTES - current_used} bytes, "
+				f"Requested: {file_size} bytes."
+			)

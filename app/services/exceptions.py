@@ -23,3 +23,10 @@ class MessageNotFoundError(ServiceError):
 
 	def __init__(self, message: str = 'Message not found.'):
 		super().__init__(message)
+
+
+class QuotaExceededError(ServiceError):
+	"""The quota was exceeded."""
+
+	def __init__(self, message: str = 'Quota exceeded.'):
+		super().__init__(message)
