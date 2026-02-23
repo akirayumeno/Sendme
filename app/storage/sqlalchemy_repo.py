@@ -14,7 +14,7 @@ from app.storage.abstract_metadata_repo import (
 )
 from app.storage.exceptions import (
 	UserConstraintError, RepositoryError, MessageNotFoundError,
-	UserNotFoundErrorById, MessageUpdateError
+	UserNotFoundErrorById, MessageUpdateError, TokenNotFoundErrorByJti
 )
 
 
@@ -119,19 +119,19 @@ class MessageRepository(AbstractMessageRepository):
 			await self.db.rollback()
 			raise RepositoryError(f"Error creating message: {e}") from e
 
-	async def get_message_by_message_id(self, message_id: int) -> Optional[Message]:
+	async def get_by_message_id(self, message_id: int) -> Optional[Message]:
 		result = await self.db.execute(select(Message).filter(Message.id == message_id))
 		message = result.scalars().first()
 		if message is None:
 			raise MessageNotFoundError(message_id = message_id)
 		return message
 
-	async def get_messages_by_user(self, user_id: int) -> List['Message']:
+	async def get_by_user(self, user_id: int) -> List['Message']:
 		result = await self.db.execute(select(Message).filter(Message.user_id == user_id))
 		return list(result.scalars().all())
 
 	async def update_message(self, message_id: int, status: MessageStatus):
-		message = await self.get_message_by_message_id(message_id)
+		message = await self.get_by_message_id(message_id)
 		try:
 			message.status = status
 			await self.db.commit()
@@ -140,21 +140,17 @@ class MessageRepository(AbstractMessageRepository):
 			await self.db.rollback()
 			raise MessageUpdateError(message_id = message_id)
 
-	async def delete_message(self, message_id: int) -> Optional[int]:
+	async def delete_message(self, message_id: int):
 		"""Permanently delete the message record and return the file size for capacity deduction."""
-		# 1. Get the file size first
+		# Get the file size first
 		stmt_size = select(Message.file_size_bytes).filter(Message.id == message_id)
 		result_size = await self.db.execute(stmt_size)
 		file_size = result_size.scalar()
 
-		if file_size is None:
-			return None
-
 		try:
-			# 2. Perform deletion
+			# Perform deletion
 			await self.db.execute(delete(Message).filter(Message.id == message_id))
 			await self.db.commit()
-			return file_size
 		except Exception as e:
 			await self.db.rollback()
 			raise RepositoryError(f"Error hard deleting message {message_id}: {e}") from e
@@ -187,7 +183,7 @@ class RefreshTokenRepository(AbstractRefreshTokenRepository):
 		result = await self.db.execute(stmt)
 		unused_token = result.scalars().first()
 		if not unused_token:
-			raise RepositoryError(f"Refresh Token {token_jti} not found or already used.")
+			raise TokenNotFoundErrorByJti(f"Refresh Token {token_jti} not found or already used.")
 		return unused_token
 
 	async def delete_token_record(self, token_jti: str) -> bool:
@@ -199,12 +195,11 @@ class RefreshTokenRepository(AbstractRefreshTokenRepository):
 			await self.db.rollback()
 			raise RepositoryError(f"Error deleting token {token_jti}: {e}") from e
 
-	async def delete_all_user_tokens(self, user_id: int) -> int:
+	async def delete_all_user_tokens(self, user_id: int):
 		try:
 			stmt = delete(RefreshToken).where(RefreshToken.user_id == user_id)
 			result = await self.db.execute(stmt)
 			await self.db.commit()
-			return result.rowcount
 		except Exception as e:
 			await self.db.rollback()
 			raise RepositoryError(f"Error deleting all tokens for user {user_id}: {e}") from e

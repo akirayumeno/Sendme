@@ -93,3 +93,9 @@ class CapacityExceededError(RepositoryError):
 
 		super().__init__(message)
 		self.used_quota_bytes = used_quota_bytes
+
+
+class TokenNotFoundErrorByJti(RepositoryError):
+	def __init__(self, jti: str):
+		self.jti = jti
+		super().__init__(f"Token {jti} Not found in the database.")

@@ -43,7 +43,7 @@ class AbstractMessageRepository(ABC):
 	"""Abstract message repository interface (Asynchronous)."""
 
 	@abstractmethod
-	async def get_message_by_message_id(self, message_id: int) -> Optional['Message']:
+	async def get_by_message_id(self, message_id: int) -> Optional['Message']:
 		raise NotImplementedError
 
 	@abstractmethod
@@ -51,7 +51,7 @@ class AbstractMessageRepository(ABC):
 		raise NotImplementedError
 
 	@abstractmethod
-	async def get_messages_by_user(self, user_id: int) -> List[Message]:
+	async def get_by_user(self, user_id: int) -> List[Message]:
 		raise NotImplementedError
 
 	@abstractmethod

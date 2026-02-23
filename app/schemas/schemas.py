@@ -12,6 +12,7 @@ BASE_URL = "http://localhost:8000/api/v1"
 
 
 class MessageBase(BaseModel):
+	user_id: int
 	type: MessageType
 	device: DeviceType = DeviceType.desktop
 
@@ -29,7 +30,6 @@ class TextMessageCreate(MessageBase):
 
 
 class FileMessageCreate(MessageBase):
-	user_id: int
 	file_name: str = Field(..., alias = "fileName")
 	file_size: int = Field(..., gt = 0, alias = "fileSize")  # file size > 0
 	file_type: str = Field(..., alias = "fileType")
