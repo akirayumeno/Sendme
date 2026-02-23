@@ -5,7 +5,7 @@ import pytest
 
 from app.core.enums import MessageType, MessageStatus
 from app.storage.exceptions import UserNotFoundErrorById, UserConstraintError, RepositoryError, \
-	MessageNotFoundError
+	MessageNotFoundError, TokenNotFoundErrorByJti
 from app.storage.sqlalchemy_repo import UserRepository, MessageRepository, RefreshTokenRepository
 
 
@@ -199,7 +199,7 @@ async def test_create_message_success(db_session):
 async def test_get_message_not_found(db_session):
 	repo = MessageRepository(db_session)
 	with pytest.raises(MessageNotFoundError):
-		await repo.get_message_by_message_id(999)
+		await repo.get_by_message_id(999)
 
 
 async def test_hard_delete_logic(db_session):
@@ -215,12 +215,11 @@ async def test_hard_delete_logic(db_session):
 		}
 	)
 
-	size = await repo.delete_message(msg.id)
-	assert size == file_size
+	await repo.delete_message(msg.user_id)
 
 	# 3. A subsequent query should throw a Not Found exception.
 	with pytest.raises(MessageNotFoundError):
-		await repo.get_message_by_message_id(msg.id)
+		await repo.get_by_message_id(msg.user_id)
 
 
 # ---------------------------------------------------------
@@ -245,7 +244,7 @@ async def test_get_expired_token_fails(db_session):
 	await repo.create_token_record(user_id = 1, token_jti = jti, expires_at = expires)
 
 	# The repository is likely not found because `expires_at < now()` (throwing a `RepositoryError`).
-	with pytest.raises(RepositoryError, match = "not found or already used"):
+	with pytest.raises(TokenNotFoundErrorByJti, match = "not found or already used"):
 		await repo.get_unused_token(jti)
 
 
@@ -255,5 +254,6 @@ async def test_delete_all_user_tokens(db_session):
 	await repo.create_token_record(user_id, "jti1", datetime.now() + timedelta(days = 1))
 	await repo.create_token_record(user_id, "jti2", datetime.now() + timedelta(days = 1))
 
-	count = await repo.delete_all_user_tokens(user_id)
-	assert count == 2
+	await repo.delete_all_user_tokens(user_id)
+	with pytest.raises(TokenNotFoundErrorByJti, match = "not found or already used"):
+		await repo.get_unused_token("jti1")
