@@ -2,6 +2,7 @@ import uuid
 
 from fastapi import UploadFile
 
+from app.core.enums import MessageStatus
 from app.core.orm_models import Message
 from app.core.settings import settings
 from app.schemas.schemas import FileMessageCreate
@@ -30,11 +31,6 @@ class FileService:
 		# Generate a unique temporary name to prevent collision
 		temp_filename = f"{uuid.uuid4()}_{file.filename}"
 
-		# Check capacity
-		current_used = await self.user_repo.get_used_capacity(user_id)
-		if current_used + (file.size or 0) > settings.DEFAULT_MAX_CAPACITY_BYTES:
-			raise QuotaExceededError()
-
 		# Stream the file to the temp folder via Repo
 		# If the connection is aborted, FileRepo handles the cleanup internally
 		size_bytes = await self.file_repo.save(file.file, temp_filename, is_temp = True)
@@ -58,7 +54,6 @@ class FileService:
 			raise FileNotFoundError(f"Temporary file {temp_filename} not found.")
 
 		# 2. Logic & Safety Check (The method you extracted)
-		# We use schema.user_id to ensure we are checking the right person
 		await self._check_quota(schema.user_id, temp_filename, file_size)
 
 		# 3. Physical Move: Temp -> Final
@@ -67,7 +62,15 @@ class FileService:
 
 		# 4. Database Persistence
 		# schema.model_dump() already contains the finalized file_path and metadata
-		return await self.message_repo.create_message(schema.model_dump())
+		uploaded_messages = await self.message_repo.create_message(schema.model_dump())
+
+		# 5. Refresh message status
+		await self.message_repo.update_message(uploaded_messages.id, MessageStatus.sent)
+
+		# 6. Calculate capacity
+		await self.user_repo.update_used_capacity(schema.user_id, file_size)
+
+		return uploaded_messages
 
 	async def cancel_pending_upload(self, temp_filename: str):
 		"""

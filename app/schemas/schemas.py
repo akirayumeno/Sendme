@@ -34,6 +34,7 @@ class FileMessageCreate(MessageBase):
 	file_size: int = Field(..., gt = 0, alias = "fileSize")  # file size > 0
 	file_type: str = Field(..., alias = "fileType")
 	file_path: str = Field(..., alias = "filePath")
+	status: MessageStatus = MessageStatus.processing  # default as processing
 	type: MessageType = MessageType.file  # default as file
 
 	model_config = ConfigDict(populate_by_name = True)

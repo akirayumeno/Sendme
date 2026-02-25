@@ -3,7 +3,8 @@ from pathlib import Path
 import aiofiles
 import aiofiles.os as aios
 
-from app.storage.exceptions import FileWriteError, RepositoryError, FileDeleteError
+from app.core.settings import settings
+from app.storage.exceptions import FileWriteError, RepositoryError, FileDeleteError, CapacityExceededError
 
 
 class FileRepo:
@@ -25,11 +26,13 @@ class FileRepo:
 
 		# Ensure subdirectories exist (e.g., if file_path is 'user1/image.png')
 		full_path.parent.mkdir(parents = True, exist_ok = True)
-
+		
 		bytes_written = 0
 		try:
 			async with aiofiles.open(full_path, "wb") as f:
 				async for chunk in file_stream:
+					if bytes_written + len(chunk) > settings.DEFAULT_MAX_CAPACITY_BYTES:
+						raise CapacityExceededError("Disk or User limit reached during stream.")
 					await f.write(chunk)
 					bytes_written += len(chunk)
 			return bytes_written
