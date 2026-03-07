@@ -11,7 +11,6 @@ class MessageType(StrEnum):
 class MessageStatus(StrEnum):
 	sent = "SENT"
 	processing = "PROCESSING"
-	deleted = "DELETED"
 	failed = "FAILED"
 	expired = "EXPIRED"
 

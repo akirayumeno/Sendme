@@ -1,24 +1,30 @@
-import os
-
-import aiofiles  # 推荐使用异步文件操作
+from app.core.enums import MessageStatus
+from app.core.orm_models import Message
+from app.schemas.schemas import TextMessageCreate
+from app.storage.sqlalchemy_repo import MessageRepository, UserRepository
 
 
 class MessageService:
-	async def handle_file_upload(self, user_id: int, file: UploadFile):
-		temp_path = f"/tmp/{file.filename}"
+	def __init__(
+			self,
+			message_repo: MessageRepository,
+			user_repo: UserRepository,
+	):
+		self.message_repo = message_repo
+		self.user_repo = user_repo
 
-		try:
-			# 1. 开始写入文件
-			async with aiofiles.open(temp_path, 'wb') as f:
-				while chunk := await file.read(1024 * 1024):  # 每次读取 1MB
-					await f.write(chunk)
+	async def create_text_message(
+			self, schema: TextMessageCreate
+	) -> Message:
+		"""text message save in database"""
+		data = schema.model_dump()
+		data["status"] = MessageStatus.sent
+		return await self.message_repo.create_message(data)
 
-			# 2. 如果运行到这里，说明上传完整，执行 DB 记录
-			return await self.message_repo.create_file_message(user_id, temp_path)
+	async def get_history(self, user_id: int, limit: int = 20, offset: int = 0):
+		"""get history from user"""
+		return await self.message_repo.get_by_user(user_id, limit, offset)
 
-		except Exception as e:
-			# 3. 如果中间用户点 "X"，连接断开，这里会捕获到异常
-			print(f"Upload interrupted for user {user_id}: {e}")
-			if os.path.exists(temp_path):
-				os.remove(temp_path)  # 清理没传完的碎片文件
-			raise e  # 继续抛出，让 FastAPI 处理剩下的事
+	async def delete_message(self, message_id: int, user_id: int) -> Message:
+		"""delete message by id"""
+		file_size = self.message_repo.delete_message(message_id)

@@ -30,3 +30,17 @@ class QuotaExceededError(ServiceError):
 
 	def __init__(self, message: str = 'Quota exceeded.'):
 		super().__init__(message)
+
+
+class FilePathNotFoundError(ServiceError):
+	"""The file was not found in the database."""
+
+	def __init__(self, message: str = 'File not found.'):
+		super().__init__(message)
+
+
+class MessagePermissionError(ServiceError):
+	"""Permission denied."""
+
+	def __init__(self, message: str = 'Permission denied.'):
+		super().__init__(message)

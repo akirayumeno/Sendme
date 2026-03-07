@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, Sequence
 
 from sqlalchemy import select, delete, func
 from sqlalchemy.exc import IntegrityError
@@ -126,9 +126,16 @@ class MessageRepository(AbstractMessageRepository):
 			raise MessageNotFoundError(message_id = message_id)
 		return message
 
-	async def get_by_user(self, user_id: int) -> List['Message']:
-		result = await self.db.execute(select(Message).filter(Message.user_id == user_id))
-		return list(result.scalars().all())
+	async def get_by_user(self, user_id: int, limit: int = 20, offset: int = 0) -> Sequence['Message']:
+		stmt = (
+			select(Message)
+			.filter(Message.user_id == user_id)
+			.order_by(Message.created_at.desc())
+			.limit(limit)
+			.offset(offset)
+		)
+		result = await self.db.execute(stmt)
+		return result.scalars().all()
 
 	async def update_message(self, message_id: int, status: MessageStatus):
 		message = await self.get_by_message_id(message_id)
@@ -140,17 +147,17 @@ class MessageRepository(AbstractMessageRepository):
 			await self.db.rollback()
 			raise MessageUpdateError(message_id = message_id)
 
-	async def delete_message(self, message_id: int):
+	async def delete_message(self, message_id: int) -> int:
 		"""Permanently delete the message record and return the file size for capacity deduction."""
 		# Get the file size first
 		stmt_size = select(Message.file_size_bytes).filter(Message.id == message_id)
-		result_size = await self.db.execute(stmt_size)
-		file_size = result_size.scalar()
-
+		result = await self.db.execute(stmt_size)
+		file_size = result.scalar() or 0
 		try:
 			# Perform deletion
 			await self.db.execute(delete(Message).filter(Message.id == message_id))
 			await self.db.commit()
+			return file_size
 		except Exception as e:
 			await self.db.rollback()
 			raise RepositoryError(f"Error hard deleting message {message_id}: {e}") from e
