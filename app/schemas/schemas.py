@@ -12,7 +12,6 @@ BASE_URL = "http://localhost:8000/api/v1/messages"
 
 
 class MessageBase(BaseModel):
-	id = int
 	user_id: int
 	type: MessageType
 	device: DeviceType = DeviceType.desktop
@@ -59,7 +58,7 @@ class MessageResponse(BaseModel):
 	"""Response model that matches frontend Message interface exactly"""
 	model_config = ConfigDict(from_attributes = True, populate_by_name = True)
 
-	id: str
+	id: int
 	type: MessageType
 	status: MessageStatus
 
