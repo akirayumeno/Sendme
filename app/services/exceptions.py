@@ -44,3 +44,10 @@ class MessagePermissionError(ServiceError):
 
 	def __init__(self, message: str = 'Permission denied.'):
 		super().__init__(message)
+
+
+class FileUploadAbortedError(ServiceError):
+	"""The file was uploaded was aborted."""
+
+	def __init__(self, message: str = 'File upload aborted by user.'):
+		super().__init__(message)

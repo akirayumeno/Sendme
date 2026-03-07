@@ -7,7 +7,7 @@ from app.core.orm_models import Message
 from app.core.settings import settings
 from app.schemas.schemas import FileMessageCreate
 from app.services.exceptions import QuotaExceededError, FilePathNotFoundError, MessageNotFoundError, \
-	MessagePermissionError
+	MessagePermissionError, FileUploadAbortedError
 from app.storage.file_repo import FileRepo
 from app.storage.sqlalchemy_repo import MessageRepository, UserRepository
 
@@ -34,7 +34,10 @@ class FileService:
 
 		# Stream the file to the temp folder via Repo
 		# If the connection is aborted, FileRepo handles the cleanup internally
-		size_bytes = await self.file_repo.save(file.file, temp_filename, is_temp = True)
+		try:
+			size_bytes = await self.file_repo.save(file.file, temp_filename, is_temp = True)
+		except Exception as e:
+			raise FileUploadAbortedError() from e
 
 		return {
 			"temp_filename":temp_filename,
@@ -63,12 +66,11 @@ class FileService:
 
 		# 4. Database Persistence
 		# schema.model_dump() already contains the finalized file_path and metadata
-		uploaded_messages = await self.message_repo.create_message(schema.model_dump())
+		data = schema.model_dump()
+		data["status"] = MessageStatus.sent
+		uploaded_messages = await self.message_repo.create_message(data)
 
-		# 5. Refresh message status
-		await self.message_repo.update_message(uploaded_messages.id, MessageStatus.sent)
-
-		# 6. Calculate capacity
+		# 5. Calculate capacity
 		await self.user_repo.update_used_capacity(schema.user_id, file_size)
 
 		return uploaded_messages
@@ -94,15 +96,16 @@ class FileService:
 		if message.user_id != user_id:
 			raise MessagePermissionError("Message Permission denied.")
 
-		# 2. Physically remove the file from permanent storage
+		# 2. Remove the metadata record
+		released_bytes = await self.message_repo.delete_message(message_id)
+		# 3. Refresh capacity
+		used_quota_bytes = await self.user_repo.update_used_capacity(user_id, released_bytes)
+
+		# 4. Physically remove the file from permanent storage
 		if message.file_path:
 			await self.file_repo.delete(message.file_path, is_temp = False)
 		else:
 			raise FilePathNotFoundError("File was not found in the message.")
-		# 3. Remove the metadata record (or mark as is_deleted=True for soft delete)
-		released_bytes = await self.message_repo.delete_message(message_id)
-		# 4. Refresh capacity
-		used_quota_bytes = await self.user_repo.update_used_capacity(user_id, released_bytes)
 		return used_quota_bytes
 
 	async def _check_quota(self, user_id: int, temp_filename: str, file_size: int):

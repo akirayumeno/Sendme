@@ -56,7 +56,7 @@ class MessageResponse(BaseModel):
 	file_type: Optional[str] = Field(None, alias = "fileType")
 
 	file_path: Optional[str] = Field(None, alias = "filePath")
-	file_size_bytes: Optional[int] = Field(None, alias = "fileSize", exclude = True)
+	file_size_bytes: Optional[int] = Field(None, alias = "fileSize", repr = False)
 
 	# Upload progress
 	progress: Optional[int] = None
@@ -85,7 +85,9 @@ class MessageResponse(BaseModel):
 	@property
 	def fileSize(self) -> Optional[str]:
 		"""Format raw file_size (int) to human-readable string (str)"""
-		return format_file_size(self.file_size_bytes) if self.file_size_bytes else None
+		if self.file_size_bytes is not None:
+			return format_file_size(self.file_size_bytes) if self.file_size_bytes else None
+		return None
 
 
 # User Schemas
