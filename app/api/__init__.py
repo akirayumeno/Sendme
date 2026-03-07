@@ -1,1 +1,1 @@
-from app.api import *
+"""API routers package."""

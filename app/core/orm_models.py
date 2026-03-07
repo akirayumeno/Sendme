@@ -54,6 +54,7 @@ class User(Base):
 	# Minimum total storage space (bytes) allowed for user uploads.
 	used_quota_bytes = Column(Integer, default = 0)
 	hashed_password = Column(String, nullable = False)
+	email = Column(String(255), unique = True, index = True, nullable = False)
 	is_verified = Column(Boolean, nullable = False, default = False)
 	github_id = Column(String(255), nullable = True, unique = True)  # sso
 	google_id = Column(String(255), nullable = True, unique = True)  # sso

@@ -5,6 +5,7 @@ from aiosmtplib import send
 from jinja2 import Environment, FileSystemLoader
 
 from app.core.settings import settings
+from app.services.exceptions import EmailDeliveryError
 
 template_dir = os.path.join(os.path.dirname(__file__), "../templates")
 load = Environment(loader = FileSystemLoader(template_dir))
@@ -21,7 +22,7 @@ class NotificationService:
 		"""
 		Sends an HTML email with the verification code.
 		"""
-		template = load.get_template('verification_mail.html')
+		template = load.get_template('verification_code.html')
 		html_content = template.render(username = username, code = code)
 
 		message = EmailMessage()
@@ -31,15 +32,18 @@ class NotificationService:
 
 		message.set_content(html_content, subtype = 'html')
 		# send email
-		await send(
-			message,
-			hostname = self.smtp_server,
-			port = self.smtp_port,
-			username = self.email,
-			password = self.code,
-			use_tls = (self.smtp_port == 465),
-			start_tls = (self.smtp_port == 587)
-		)
+		try:
+			await send(
+				message,
+				hostname = self.smtp_server,
+				port = self.smtp_port,
+				username = self.email,
+				password = self.code,
+				use_tls = (self.smtp_port == 465),
+				start_tls = (self.smtp_port == 587)
+			)
+		except Exception as e:
+			raise EmailDeliveryError("Failed to deliver verification email.") from e
 
 
 notification_service = NotificationService()

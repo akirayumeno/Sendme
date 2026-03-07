@@ -51,3 +51,38 @@ class FileUploadAbortedError(ServiceError):
 
 	def __init__(self, message: str = 'File upload aborted by user.'):
 		super().__init__(message)
+
+
+class UserConstraintError(ServiceError):
+	"""The User already verified."""
+
+	def __init__(self, message: str = 'User already verified.'):
+		super().__init__(message)
+
+
+class RateLimitError(ServiceError):
+	"""Rate limit exceeded."""
+
+	def __init__(self, message: str = 'Rate limit exceeded.'):
+		super().__init__(message)
+
+
+class OtpInvalidError(ServiceError):
+	"""The OTP is invalid."""
+
+	def __init__(self, message: str = 'OTP is invalid.'):
+		super().__init__(message)
+
+
+class OtpLockedError(ServiceError):
+	"""The OTP is locked."""
+
+	def __init__(self, message: str = 'OTP is locked.'):
+		super().__init__(message)
+
+
+class EmailDeliveryError(ServiceError):
+	"""Email delivery failed."""
+
+	def __init__(self, message: str = 'Email delivery failed.'):
+		super().__init__(message)

@@ -123,3 +123,12 @@ class FileService:
 				f"Quota exceeded. Available: {settings.DEFAULT_MAX_CAPACITY_BYTES - current_used} bytes, "
 				f"Requested: {file_size} bytes."
 			)
+
+	async def get_file_path_for_user(self, message_id: int, user_id: int) -> str:
+		message = await self.message_repo.get_by_message_id(message_id)
+
+		if message.user_id != user_id:
+			raise MessagePermissionError("Message Permission denied.")
+		if not message.file_path:
+			raise FilePathNotFoundError("File was not found in the message.")
+		return message.file_path

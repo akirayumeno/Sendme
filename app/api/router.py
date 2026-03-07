@@ -1,169 +1,133 @@
+import os
 import uuid
-from datetime import timedelta, timezone, datetime
-from typing import List
+from pathlib import Path
 
-from app.models import file_repository
-from app.models import models
-from app.models.file_repository import get_user, get_password_hash, verify_password, create_access_token, \
-	get_current_user
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
-from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
+from starlette import status
 
-from app.core.database import get_db
-from app.core.dependencies import get_user_repository
-from app.core.orm_models import User
-from app.core.security import AuthService
-from app.main import ACCESS_TOKEN_EXPIRE_MINUTES
-from app.schemas import schemas
-from app.schemas.schemas import UserSchema, UserCreate, Token
-from app.services import file_service
-from app.services.file_service import FileService
-from app.storage.exceptions import UserConstraintError
-
-router_messages = APIRouter(
-	tags = ["messages"]
+from app.core.dependencies import get_current_user_id, get_file_repo, get_file_service, get_message_service
+from app.core.enums import DeviceType, MessageType
+from app.schemas.schemas import FileMessageCreate, MessageResponse, TextMessageCreate, TextMessageRequest
+from app.services.exceptions import (
+	FilePathNotFoundError,
+	FileUploadAbortedError,
+	MessagePermissionError,
+	QuotaExceededError,
 )
+from app.services.file_service import FileService
+from app.services.message_service import MessageService
+from app.storage.file_repo import FileRepo
+
+router = APIRouter(prefix = "/messages", tags = ["messages"])
 
 
-def get_auth_service(user_repo = Depends(get_user_repository)):
-	return AuthService(user_repo)
+def _resolve_file_path(file_repo: FileRepo, relative_path: str) -> Path:
+	full_path = (file_repo.upload_dir / relative_path).resolve()
+	upload_root = file_repo.upload_dir.resolve()
+	if upload_root not in full_path.parents:
+		raise HTTPException(status_code = 400, detail = "Invalid file path.")
+	return full_path
 
 
-def get_file_service(user_repo = Depends(get_user_repository)):
-	return FileService(user_repo)
+def _file_response(file_repo: FileRepo, relative_path: str, as_download: bool) -> FileResponse:
+	full_path = _resolve_file_path(file_repo, relative_path)
+	if not full_path.exists():
+		raise HTTPException(status_code = 404, detail = "File not found.")
+	filename = os.path.basename(relative_path) if as_download else None
+	return FileResponse(path = str(full_path), filename = filename)
 
 
-@router_messages.post("/text", response_model = schemas.MessageResponse)
-async def create_text_message(
-		message: schemas.TextMessageCreate,
-		db: Session = Depends(get_db),
-		current_user: User = Depends(get_current_user)
+@router.post("/text", response_model = MessageResponse)
+async def send_text(
+		payload: TextMessageRequest,
+		user_id: int = Depends(get_current_user_id),
+		service: MessageService = Depends(get_message_service),
 ):
-	"""Create a text message"""
-	db_message = file_repository.create_text_message(db, message, current_user)
-	return db_message
+	schema = TextMessageCreate(
+		user_id = user_id,
+		content = payload.content,
+		type = MessageType.text,
+		device = payload.device,
+	)
+	return await service.create_text_message(schema)
 
 
-@router_messages.put("/{message_id}", response_model = schemas.MessageResponse)
-async def update_message(
-		message_id: str,
-		message: schemas.TextMessageCreate,
-		db: Session = Depends(get_db)
+@router.get("/history", response_model = list[MessageResponse])
+async def get_history(
+		page: int = Query(1, ge = 1),
+		user_id: int = Depends(get_current_user_id),
+		service: MessageService = Depends(get_message_service),
 ):
-	updated_message = file_repository.update_message(db, message_id, message)
-	if not updated_message:
-		raise HTTPException(status_code = 404, detail = "Message not found")
-
-	return updated_message
+	return await service.get_history(user_id = user_id, page = page)
 
 
-@router_messages.post("/upload", response_model = schemas.MessageResponse)
+@router.post("/upload", response_model = MessageResponse)
 async def upload_file(
 		file: UploadFile = File(...),
-		device: schemas.DeviceType = schemas.DeviceType.desktop,
-		db: Session = Depends(get_db),
-		current_user: User = Depends(get_current_user)
+		device: DeviceType = Form(DeviceType.desktop),
+		user_id: int = Depends(get_current_user_id),
+		service: FileService = Depends(get_file_service),
 ):
-	"""Upload a file and create a file/image message"""
-	try:
-		file_info = await file_service.upload_file(file)
+	if not file.filename:
+		raise HTTPException(status_code = 400, detail = "Missing filename.")
 
-		if file.content_type.startswith("image/"):
-			message_type = schemas.MessageType.image
-		else:
-			message_type = schemas.MessageType.file
+	upload_info = await service.handle_initial_upload(file)
+	extension = Path(upload_info["original_filename"]).suffix
+	final_filename = f"{user_id}/{uuid.uuid4().hex}{extension}"
+	message_type = MessageType.image if (upload_info["mime_type"] or "").startswith("image/") else MessageType.file
 
-		message_data = Message(
-			id = uuid.uuid4(),
-			user_id = current_user.id,
-			type = message_type,
-			file_name = file.filename,
-			file_size = file_info["size"],
-			file_type = file.content_type,
-			file_path = file_info["path"],
-			device = device,
-			status = models.MessageStatus.success,
-			created_at = datetime.now(timezone.utc)
-		)
-
-		db_message = file_repository.create_file_message(db, message_data)
-		return db_message
-
-	except Exception as e:
-		raise HTTPException(status_code = 500, detail = str(e))
-
-
-@router_messages.get("/", response_model = List[schemas.MessageResponse])
-async def get_messages(
-		skip: int = 0,
-		limit: int = 100,
-		db: Session = Depends(get_db),
-		current_user: User = Depends(get_current_user)
-):
-	"""Get all messages with pagination"""
-	messages = file_repository.get_messages(db, skip = skip, limit = limit, current_user = current_user)
-	return messages
-
-
-@router_messages.get("/{message_id}", response_model = schemas.MessageResponse)
-async def get_message(message_id: str, db: Session = Depends(get_db)):
-	"""Get a specific message by ID"""
-	message = file_repository.get_message(db, message_id)
-	if not message:
-		raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = "Message not found")
-	return message
-
-
-@router_messages.delete("/{message_id}")
-async def delete_message(message_id: str, db: Session = Depends(get_db)):
-	"""Delete a message"""
-	success = file_repository.delete_message(db, message_id)
-	if not success:
-		raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = "Message not found")
-
-
-@router_messages.get("/download/{file_path:path}")
-async def get_file(file_path: str):
-	"""Serve uploaded files"""
-	return await file_service.get_file(file_path)
-
-
-@router_messages.get("/view/{file_path:path}")
-async def get_image(file_path: str):
-	"""Serve uploaded images"""
-	return await file_service.get_image(file_path)
-
-
-# Authentication Routes (/api/v1/auth/...)
-@router_messages.post("/auth/register", response_model = UserSchema, status_code = status.HTTP_201_CREATED)
-def register_user(user: UserCreate, db: Session = Depends(get_db)):
-	"""
-	User registration endpoint: /api/v1/auth/register
-	"""
-	try:
-		user = register_user(db, username = user.username, password = user.password)
-		return {"message":"User registered successfully", "user_id":user.id}
-
-	except UserConstraintError as e:
-		raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = str(e)) from e
-
-
-@router_messages.post("/auth/token", response_model = Token)
-def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-	"""
-	Login endpoint: /api/v1/auth/token (Generates JWT)
-	"""
-	user = get_user(db, username = form_data.username)
-	if not user or not verify_password(form_data.password, user.hashed_password):
-		raise HTTPException(
-			status_code = status.HTTP_401_UNAUTHORIZED,
-			detail = "Incorrect username or password",
-			headers = {"WWW-Authenticate":"Bearer"},
-		)
-
-	access_token_expires = timedelta(minutes = ACCESS_TOKEN_EXPIRE_MINUTES)
-	access_token = create_access_token(
-		data = {"sub":user.username}, expires_delta = access_token_expires
+	schema = FileMessageCreate.model_validate(
+		{
+			"user_id":user_id,
+			"device":device,
+			"type":message_type,
+			"file_size":upload_info["size_bytes"],
+			"file_type":upload_info["mime_type"] or "application/octet-stream",
+			"file_name":upload_info["original_filename"],
+			"file_path":final_filename
+		}
 	)
-	return {"access_token":access_token, "token_type":"bearer"}
+
+	try:
+		return await service.finalize_file_message(
+			schema = schema,
+			temp_filename = upload_info["temp_filename"],
+			file_size = upload_info["size_bytes"],
+		)
+	except QuotaExceededError as exc:
+		raise HTTPException(status_code = status.HTTP_403_FORBIDDEN, detail = str(exc)) from exc
+	except (FileUploadAbortedError, FilePathNotFoundError, MessagePermissionError) as exc:
+		raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = str(exc)) from exc
+
+
+@router.get("/{message_id}/download")
+async def download_file(
+		message_id: int,
+		user_id: int = Depends(get_current_user_id),
+		file_repo: FileRepo = Depends(get_file_repo),
+		service: FileService = Depends(get_file_service),
+):
+	file_path = await service.get_file_path_for_user(message_id = message_id, user_id = user_id)
+	return _file_response(file_repo, file_path, as_download = True)
+
+
+@router.get("/{message_id}/view")
+async def view_file(
+		message_id: int,
+		user_id: int = Depends(get_current_user_id),
+		file_repo: FileRepo = Depends(get_file_repo),
+		service: FileService = Depends(get_file_service),
+):
+	file_path = await service.get_file_path_for_user(message_id = message_id, user_id = user_id)
+	return _file_response(file_repo, file_path, as_download = False)
+
+
+@router.delete("/{message_id}")
+async def delete_message(
+		message_id: int,
+		user_id: int = Depends(get_current_user_id),
+		service: MessageService = Depends(get_message_service),
+):
+	await service.delete_message(message_id = message_id, user_id = user_id)
+	return {"status":"success", "message":"Message deleted"}

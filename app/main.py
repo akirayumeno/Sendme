@@ -1,33 +1,34 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
-from fastapi.security import OAuth2PasswordBearer
-from passlib.context import CryptContext
-# Libraries for JWT authentication and password hashing
 from starlette.middleware.cors import CORSMiddleware
 
-from app.api.router import router_messages
-from app.core.database import engine
-from app.models import models
+from app.api.auth import router as auth_router
+from app.api.router import router as message_router
+from app.core.database import Base, engine
+from app.core.exception_handlers import register_exception_handlers
 
-# JWT Settings
-SECRET_KEY = "YOUR_SUPER_SECRET_KEY"  # Use a secure key in production
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-# Create tables
-models.Base.metadata.create_all(bind = engine)
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+	# Auto-create tables for local development convenience.
+	async with engine.begin() as conn:
+		await conn.run_sync(Base.metadata.create_all)
+	yield
 
-app = FastAPI(title = "SendMe API", version = "1.0.0")
 
-# Password hashing context
-pwd_context = CryptContext(schemes = ["bcrypt"], deprecated = "auto")
+app = FastAPI(title = "SendMe API", version = "1.0.0", lifespan = lifespan)
+register_exception_handlers(app)
 
-app.include_router(router_messages, prefix = "/api/v1")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl = "/api/v1/auth/token")
+app.include_router(auth_router, prefix = "/api/v1")
+app.include_router(message_router, prefix = "/api/v1")
 
-# CORS middleware
 app.add_middleware(
 	CORSMiddleware,
-	allow_origins = ["http://localhost:3000"],
+	allow_origins = [
+		"http://localhost:3000",
+		"http://localhost:5173",
+	],
 	allow_credentials = True,
 	allow_methods = ["*"],
 	allow_headers = ["*"],

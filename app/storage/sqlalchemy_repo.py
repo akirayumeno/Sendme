@@ -41,9 +41,13 @@ class UserRepository(AbstractUserRepository):
 		user = result.scalars().first()
 		return user
 
-	async def create_user(self, username: str, hashed_password: str) -> User:
-		"""Create a new user record in the database."""
-		new_user = User(username = username, hashed_password = hashed_password)
+	async def create_user(self, username: str, hashed_password: str, email: str, is_verified: bool = False):
+		new_user = User(
+			username = username,
+			hashed_password = hashed_password,
+			email = email,
+			is_verified = is_verified,
+		)
 		try:
 			self.db.add(new_user)
 			await self.db.commit()
@@ -51,10 +55,7 @@ class UserRepository(AbstractUserRepository):
 			return new_user
 		except IntegrityError as e:
 			await self.db.rollback()
-			raise UserConstraintError(f"User {username} already exists in the database.") from e
-		except Exception as e:
-			await self.db.rollback()
-			raise RepositoryError(f"An unknown error occurred while creating a user {username}.") from e
+			raise UserConstraintError("User or email already exists.") from e
 
 	async def update_user(self, user_id: int, updates: dict) -> User:
 		"""Update a user record in the database."""
@@ -73,6 +74,10 @@ class UserRepository(AbstractUserRepository):
 		except Exception as e:
 			await self.db.rollback()
 			raise RepositoryError(f"Error updating user {current_uid}.") from e
+
+	async def get_user_by_email(self, email: str):
+		result = await self.db.execute(select(User).filter(User.email == email))
+		return result.scalars().first()
 
 	# ---Capacity method---
 	async def get_user_with_capacity_lock(self, user_id: int) -> User:

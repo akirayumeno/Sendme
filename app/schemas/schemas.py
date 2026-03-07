@@ -2,13 +2,13 @@ from datetime import datetime
 from typing import Optional, Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, computed_field, field_validator, ConfigDict, Field
+from pydantic import BaseModel, computed_field, field_validator, ConfigDict, Field, EmailStr
 
 from app.core.enums import MessageType, DeviceType, MessageStatus
 from app.core.utils import format_file_size
 
 # DTO (Data Transfer Object) for Service layer and API layer
-BASE_URL = "http://localhost:8000/api/v1"
+BASE_URL = "http://localhost:8000/api/v1/messages"
 
 
 class MessageBase(BaseModel):
@@ -17,9 +17,23 @@ class MessageBase(BaseModel):
 	device: DeviceType = DeviceType.desktop
 
 
+# for service layer
 class TextMessageCreate(MessageBase):
 	content: str
 	type: MessageType = MessageType.text
+
+	@field_validator('content')
+	@classmethod
+	def content_must_not_be_empty(cls, v: str) -> str:
+		if not v.strip():
+			raise ValueError('Content cannot be empty')
+		return v
+
+
+# for api layer, shouldn't expose to the front with user_id and don't need type
+class TextMessageRequest(BaseModel):
+	content: str
+	device: DeviceType = DeviceType.desktop
 
 	@field_validator('content')
 	@classmethod
@@ -115,3 +129,14 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
 	username: Optional[str] = None
+
+
+class RequestOtpSchema(BaseModel):
+	email: EmailStr
+	username: str = Field(min_length = 3, max_length = 20, pattern = r"^[a-zA-Z0-9_]+$")
+	password: str = Field(min_length = 8)
+
+
+class RegisterWithOtpSchema(BaseModel):
+	email: EmailStr
+	otp_code: str = Field(min_length = 6, max_length = 6, pattern = r"^\d{6}$")

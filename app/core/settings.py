@@ -5,9 +5,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
 	DATABASE_URL: str = Field(
-		default = "postgresql://user:password@localhost:5432/local_db",
+		default = "postgresql+asyncpg://user:password@localhost:5432/local_db",
 		description = "Database connection string"
 	)
+	REDIS_URL: str = Field(default = "redis://localhost:6379", description = "Redis connection URL")
+	UPLOAD_DIR: str = Field(default = "uploads", description = "Local upload directory")
 
 	# --- SMTP ---
 	SMTP_SERVER: str = Field(default = "smtp.gmail.com", description = "SMTP server host")
@@ -32,6 +34,9 @@ class Settings(BaseSettings):
 
 	# --- Auth (OTP) ---
 	OTP_EXPIRATION_SECONDS: int = 300
+	OTP_RESEND_COOLDOWN_SECONDS: int = 60
+	OTP_MAX_ATTEMPTS: int = 5
+	OTP_LOCK_SECONDS: int = 600
 
 	# --- Message DELETE TTL ---
 	MESSAGE_TTL_SECONDS: int = 86400

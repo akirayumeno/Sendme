@@ -18,7 +18,11 @@ class AbstractUserRepository(ABC):
 		raise NotImplementedError
 
 	@abstractmethod
-	async def create_user(self, username: str, hashed_password: str) -> User:
+	async def get_user_by_email(self, email: str):
+		raise NotImplementedError
+
+	@abstractmethod
+	async def create_user(self, username: str, hashed_password: str, email: str, is_verified: bool = False):
 		raise NotImplementedError
 
 	# ---Capacity---
@@ -36,6 +40,10 @@ class AbstractUserRepository(ABC):
 
 	@abstractmethod
 	async def update_used_capacity(self, user_id: int, byte_change: int) -> int:
+		raise NotImplementedError
+
+	@abstractmethod
+	async def update_user(self, user_id: int, updates: dict) -> User:
 		raise NotImplementedError
 
 
