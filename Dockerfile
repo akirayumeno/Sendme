@@ -14,7 +14,6 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 将整个项目目录复制到容器中
 COPY . .
 
 # Create uploads directory

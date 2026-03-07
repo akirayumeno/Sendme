@@ -12,6 +12,7 @@ BASE_URL = "http://localhost:8000/api/v1/messages"
 
 
 class MessageBase(BaseModel):
+	id = int
 	user_id: int
 	type: MessageType
 	device: DeviceType = DeviceType.desktop

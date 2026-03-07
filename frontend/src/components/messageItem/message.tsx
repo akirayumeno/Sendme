@@ -1,7 +1,7 @@
-// Message Item Component
 import {Check, Copy, Download, ExternalLink, File, Monitor, Smartphone, X} from "lucide-react";
 import type {Message, ThemeConfig} from "../../types/type.tsx";
 import React, {useCallback, useRef, useState} from "react";
+import axios from "axios";
 
 interface MessageItemProps {
     message: Message,
@@ -9,65 +9,85 @@ interface MessageItemProps {
     themeConfig: ThemeConfig
 }
 
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+const API_BASE_URL = 'http://localhost:8000/api/v1/messages';
 
 const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, themeConfig}) => {
     const [isCopied, setIsCopied] = useState(false);
     const timeoutRef = useRef<number | null>(null);
-    // File download handler
-    const handleDownload = () => {
-        // Use the path provided by the backend
-        const backendFilePath = message.filePath
-        if (backendFilePath) {
-            //url
-            const downloadUrl = `${API_BASE_URL}/download/${backendFilePath}`
-            const link = document.createElement('a');
-            link.href = downloadUrl;
 
-            link.download = message.fileName || 'download';
+    const getTokenHeader = () => {
+        const token = localStorage.getItem('authToken');
+        return token ? {'Authorization': `Bearer ${token}`} : {};
+    };
 
-            document.body.appendChild(link)
-            link.click()
-            document.body.removeChild(link)
-            return;
-        } else if (message.file) {
-            // Local memory file download logic (only available when uploading)
-            console.log("Downloading from local memory (only valid before refresh).");
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(message.file);
-            link.download = message.fileName || 'download';
+    const downloadBlob = (blob: Blob, filename: string) => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+    };
 
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+    const handleDownload = async () => {
+        if (message.id && message.status === 'success') {
+            try {
+                const response = await axios.get(`${API_BASE_URL}/${message.id}/download`, {
+                    headers: getTokenHeader(),
+                    responseType: 'blob',
+                });
+                downloadBlob(response.data, message.fileName || 'download');
+                return;
+            } catch (error) {
+                console.error('Download failed:', error);
+            }
+        }
 
-            setTimeout(() => {
-                URL.revokeObjectURL(link.href);
-            }, 100);
+        if (message.file) {
+            downloadBlob(message.file, message.fileName || 'download');
             return;
         }
+
         console.error("Download Error: No file path or file data available");
     };
 
-    // copy button
-    const copyText = useCallback(() => {
-        const content = getContentToCopy()
-        // Call the copy function passed from the parent component (responsible for the actual clipboard operation).
-        onCopy(message.id, content)
-
-        // Set local state and clear old timers
-        setIsCopied(true)
-        if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current)
+    const handleViewOriginal = async () => {
+        if (message.imageUrl && message.imageUrl.startsWith('blob:')) {
+            window.open(message.imageUrl, '_blank');
+            return;
         }
 
-        // Set a new timer to reset the state after 2 seconds.
-        timeoutRef.current = setTimeout(() => {
-            setIsCopied(false)
-        }, 2000)
-    }, [message.content, onCopy])
+        if (message.id) {
+            try {
+                const response = await axios.get(`${API_BASE_URL}/${message.id}/view`, {
+                    headers: getTokenHeader(),
+                    responseType: 'blob',
+                });
+                const url = URL.createObjectURL(response.data);
+                window.open(url, '_blank');
+                setTimeout(() => URL.revokeObjectURL(url), 60_000);
+            } catch (error) {
+                console.error('View original failed:', error);
+            }
+        }
+    };
 
-    // Clean up timers to prevent memory leaks
+    const copyText = useCallback(() => {
+        const content = getContentToCopy();
+        onCopy(message.id, content);
+
+        setIsCopied(true);
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+        }
+
+        timeoutRef.current = setTimeout(() => {
+            setIsCopied(false);
+        }, 2000);
+    }, [message.id, onCopy]);
+
     React.useEffect(() => {
         return () => {
             if (timeoutRef.current) {
@@ -76,7 +96,6 @@ const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, themeConfig})
         };
     }, []);
 
-    // Get the content to copy
     const getContentToCopy = (): string => {
         switch (message.type) {
             case 'text':
@@ -106,12 +125,10 @@ const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, themeConfig})
         if (message.type === 'image') {
             return (
                 <div className="space-y-3">
-                    {/* Show upload progress or completed image */}
                     {message.status === 'uploading' ? (
                         <div className="flex items-center justify-center p-8 bg-gray-100 dark:bg-gray-700 rounded-lg">
                             <div className="text-center">
-                                <div
-                                    className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                                <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
                                 <p className={`text-sm ${themeConfig.cardClasses}`}>
                                     Uploading... {message.progress}%
                                 </p>
@@ -125,12 +142,12 @@ const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, themeConfig})
                                     alt={message.fileName}
                                     className="max-w-full h-auto rounded-lg shadow-sm border cursor-pointer hover:shadow-md transition-shadow"
                                     loading="lazy"
-                                    onClick={() => window.open(message.imageUrl, '_blank')}
+                                    onClick={handleViewOriginal}
                                 />
                             </div>
                             <div className="flex justify-center space-x-2">
                                 <button
-                                    onClick={() => window.open(message.imageUrl, '_blank')}
+                                    onClick={handleViewOriginal}
                                     className={`flex items-center space-x-1 px-3 py-2 text-sm rounded-lg transition-colors focus:outline-none ${themeConfig.viewClasses}`}
                                 >
                                     <ExternalLink className="w-4 h-4"/>
@@ -206,9 +223,7 @@ const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, themeConfig})
 
     return (
         <div className="group">
-            <div
-                className={`${themeConfig.cardClasses} border rounded-xl p-4 transition-all duration-200 hover:shadow-lg`}>
-                {/* Message header */}
+            <div className={`${themeConfig.cardClasses} border rounded-xl p-4 transition-all duration-200 hover:shadow-lg`}>
                 <div className="flex items-center justify-between mb-3 text-sm opacity-80 w-full">
                     <div className="flex-1"></div>
 
@@ -225,13 +240,11 @@ const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, themeConfig})
                     </div>
                 </div>
 
-                {/* Message content */}
                 <div className="relative">
                     <div className={`${themeConfig.cardClasses} rounded-lg p-4 border`}>
                         {renderContent()}
                     </div>
 
-                    {/* Copy button - only for text messages that are successful */}
                     {message.type === 'text' && message.status === 'success' && (
                         <button
                             onClick={copyText}
