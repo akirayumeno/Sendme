@@ -1,4 +1,4 @@
-import logging;
+import asyncio
 from pathlib import Path
 
 import aiofiles
@@ -6,8 +6,6 @@ import aiofiles.os as aios
 
 from app.core.settings import settings
 from app.storage.exceptions import FileWriteError, RepositoryError, FileDeleteError, CapacityExceededError
-
-logger = logging.getLogger(__name__)
 
 
 class FileRepo:
@@ -32,19 +30,44 @@ class FileRepo:
 		full_path.parent.mkdir(parents = True, exist_ok = True)
 
 		bytes_written = 0
+		chunk_size = 1024 * 1024  # 1MB
 		try:
 			async with aiofiles.open(full_path, "wb") as f:
-				async for chunk in file_stream:
-					if bytes_written + len(chunk) > settings.DEFAULT_MAX_CAPACITY_BYTES:
-						raise CapacityExceededError("Disk or User limit reached during stream.")
-					await f.write(chunk)
-					bytes_written += len(chunk)
+				# async generator / async iterator
+				if hasattr(file_stream, "__aiter__"):
+					async for chunk in file_stream:
+						if not chunk:
+							continue
+						if bytes_written + len(chunk) > settings.DEFAULT_MAX_CAPACITY_BYTES:
+							raise CapacityExceededError("Disk or User limit reached during stream.")
+						await f.write(chunk)
+						bytes_written += len(chunk)
+				# async read() style stream
+				elif hasattr(file_stream, "read") and asyncio.iscoroutinefunction(file_stream.read):
+					while True:
+						chunk = await file_stream.read(chunk_size)
+						if not chunk:
+							break
+						if bytes_written + len(chunk) > settings.DEFAULT_MAX_CAPACITY_BYTES:
+							raise CapacityExceededError("Disk or User limit reached during stream.")
+						await f.write(chunk)
+						bytes_written += len(chunk)
+				# sync read() style stream (e.g. SpooledTemporaryFile)
+				elif hasattr(file_stream, "read"):
+					while True:
+						chunk = await asyncio.to_thread(file_stream.read, chunk_size)
+						if not chunk:
+							break
+						if bytes_written + len(chunk) > settings.DEFAULT_MAX_CAPACITY_BYTES:
+							raise CapacityExceededError("Disk or User limit reached during stream.")
+						await f.write(chunk)
+						bytes_written += len(chunk)
+				else:
+					raise TypeError(f"Unsupported file stream type: {type(file_stream)!r}")
 			return bytes_written
 		except Exception as e:
-			# Clean up partial file on failure (Cancel logic)
 			if await aios.path.exists(full_path):
 				await aios.remove(full_path)
-				logger.warning(f"File upload aborted by user. Cleaned up partial file: {file_path}")
 			raise FileWriteError(file_path = str(full_path), original_exception = e) from e
 
 	async def move_to_final(self, temp_filename: str, final_filename: str) -> str:

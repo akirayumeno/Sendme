@@ -1,8 +1,8 @@
 """fix_all_timezones
 
-Revision ID: 02c00cf2c812
+Revision ID: b02575c85d42
 Revises: 
-Create Date: 2026-03-07 14:40:11.713461
+Create Date: 2026-03-07 15:27:07.815469
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '02c00cf2c812'
+revision: str = 'b02575c85d42'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -50,7 +50,7 @@ def upgrade() -> None:
     sa.Column('content', sa.Text(), nullable=True),
     sa.Column('file_id', sa.Uuid(), nullable=True),
     sa.Column('file_name', sa.String(length=255), nullable=True),
-    sa.Column('file_size_bytes', sa.Integer(), nullable=True),
+    sa.Column('file_size', sa.Integer(), nullable=True),
     sa.Column('file_path', sa.String(length=500), nullable=True),
     sa.Column('original_filename', sa.String(length=255), nullable=True),
     sa.Column('device', sa.Enum('phone', 'desktop', name='devicetype'), nullable=True),

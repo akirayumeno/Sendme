@@ -1,5 +1,4 @@
 from io import BytesIO
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -9,9 +8,11 @@ from starlette.datastructures import Headers
 
 from app.core.enums import DeviceType, MessageType
 from app.schemas.schemas import FileMessageCreate
+from app.storage.exceptions import MessageNotFoundError as RepoMessageNotFoundError
 from app.services.exceptions import (
 	FilePathNotFoundError,
 	FileUploadAbortedError,
+	MessageNotFoundError,
 	MessagePermissionError,
 	QuotaExceededError,
 )
@@ -24,7 +25,7 @@ def file_service(tmp_path):
 	file_repo.temp_dir = tmp_path
 	message_repo = AsyncMock()
 	user_repo = AsyncMock()
-	service = FileService(file_repo=file_repo, message_repo=message_repo, user_repo=user_repo)
+	service = FileService(file_repo = file_repo, message_repo = message_repo, user_repo = user_repo)
 	return service, file_repo, message_repo, user_repo
 
 
@@ -35,9 +36,9 @@ class TestFileService:
 		file_repo.save.return_value = 123
 
 		upload = UploadFile(
-			filename="a.txt",
-			file=BytesIO(b"hello"),
-			headers=Headers({"content-type": "text/plain"}),
+			filename = "a.txt",
+			file = BytesIO(b"hello"),
+			headers = Headers({"content-type":"text/plain"}),
 		)
 
 		result = await service.handle_initial_upload(upload)
@@ -52,9 +53,9 @@ class TestFileService:
 		file_repo.save.side_effect = RuntimeError("stream broken")
 
 		upload = UploadFile(
-			filename="a.txt",
-			file=BytesIO(b"hello"),
-			headers=Headers({"content-type": "text/plain"}),
+			filename = "a.txt",
+			file = BytesIO(b"hello"),
+			headers = Headers({"content-type":"text/plain"}),
 		)
 
 		with pytest.raises(FileUploadAbortedError):
@@ -63,17 +64,17 @@ class TestFileService:
 	async def test_finalize_file_message_temp_missing(self, file_service):
 		service, _, _, _ = file_service
 		schema = FileMessageCreate(
-			user_id=1,
-			device=DeviceType.desktop,
-			type=MessageType.file,
-			file_name="a.txt",
-			file_size=10,
-			file_type="text/plain",
-			file_path="1/a.txt",
+			user_id = 1,
+			device = DeviceType.desktop,
+			type = MessageType.file,
+			file_name = "a.txt",
+			file_size = 10,
+			file_type = "text/plain",
+			file_path = "1/a.txt",
 		)
 
 		with pytest.raises(FilePathNotFoundError):
-			await service.finalize_file_message(schema=schema, temp_filename="not_exists.tmp", file_size=10)
+			await service.finalize_file_message(schema = schema, temp_filename = "not_exists.tmp", file_size = 10)
 
 	async def test_finalize_file_message_success(self, file_service):
 		service, file_repo, message_repo, user_repo = file_service
@@ -82,18 +83,18 @@ class TestFileService:
 		user_repo.get_used_capacity.return_value = 0
 
 		schema = FileMessageCreate(
-			user_id=1,
-			device=DeviceType.desktop,
-			type=MessageType.file,
-			file_name="a.txt",
-			file_size=3,
-			file_type="text/plain",
-			file_path="1/a.txt",
+			user_id = 1,
+			device = DeviceType.desktop,
+			type = MessageType.file,
+			file_name = "a.txt",
+			file_size = 3,
+			file_type = "text/plain",
+			file_path = "1/a.txt",
 		)
 
-		message_repo.create_message.return_value = SimpleNamespace(id=1)
+		message_repo.create_message.return_value = SimpleNamespace(id = 1)
 
-		result = await service.finalize_file_message(schema=schema, temp_filename=temp_filename, file_size=3)
+		result = await service.finalize_file_message(schema = schema, temp_filename = temp_filename, file_size = 3)
 
 		assert result.id == 1
 		file_repo.move_to_final.assert_awaited_once_with(temp_filename, "1/a.txt")
@@ -105,38 +106,61 @@ class TestFileService:
 		monkeypatch.setattr("app.services.file_service.settings.DEFAULT_MAX_CAPACITY_BYTES", 120)
 
 		with pytest.raises(QuotaExceededError):
-			await service._check_quota(user_id=1, temp_filename="tmp.bin", file_size=30)
+			await service._check_quota(user_id = 1, temp_filename = "tmp.bin", file_size = 30)
 
 		file_repo.delete_temp.assert_awaited_once_with("tmp.bin")
 
 	async def test_delete_existing_file_success(self, file_service):
 		service, file_repo, message_repo, user_repo = file_service
-		message_repo.get_by_message_id.return_value = SimpleNamespace(user_id=1, file_path="1/a.txt")
+		message_repo.get_by_message_id.return_value = SimpleNamespace(user_id = 1, file_path = "1/a.txt")
 		message_repo.delete_message.return_value = 50
 		user_repo.update_used_capacity.return_value = 150
 
-		used = await service.delete_existing_file(message_id=10, user_id=1)
+		used = await service.delete_existing_file(message_id = 10, user_id = 1)
 
 		assert used == 150
-		file_repo.delete.assert_awaited_once_with("1/a.txt", is_temp=False)
+		file_repo.delete.assert_awaited_once_with("1/a.txt", is_temp = False)
 
 	async def test_delete_existing_file_permission_denied(self, file_service):
 		service, _, message_repo, _ = file_service
-		message_repo.get_by_message_id.return_value = SimpleNamespace(user_id=2, file_path="1/a.txt")
+		message_repo.get_by_message_id.return_value = SimpleNamespace(user_id = 2, file_path = "1/a.txt")
 
 		with pytest.raises(MessagePermissionError):
-			await service.delete_existing_file(message_id=10, user_id=1)
+			await service.delete_existing_file(message_id = 10, user_id = 1)
 
 	async def test_get_file_path_for_user(self, file_service):
 		service, _, message_repo, _ = file_service
-		message_repo.get_by_message_id.return_value = SimpleNamespace(user_id=1, file_path="1/a.txt")
+		message_repo.get_by_message_id.return_value = SimpleNamespace(user_id = 1, file_path = "1/a.txt")
 
-		path = await service.get_file_path_for_user(message_id=10, user_id=1)
+		path = await service.get_file_path_for_user(message_id = 10, user_id = 1)
 		assert path == "1/a.txt"
 
 	async def test_get_file_path_for_user_no_path(self, file_service):
 		service, _, message_repo, _ = file_service
-		message_repo.get_by_message_id.return_value = SimpleNamespace(user_id=1, file_path=None)
+		message_repo.get_by_message_id.return_value = SimpleNamespace(user_id = 1, file_path = None)
 
 		with pytest.raises(FilePathNotFoundError):
-			await service.get_file_path_for_user(message_id=10, user_id=1)
+			await service.get_file_path_for_user(message_id = 10, user_id = 1)
+
+	async def test_get_file_for_user_success(self, file_service):
+		service, _, message_repo, _ = file_service
+		message = SimpleNamespace(id = 10, user_id = 1, file_path = "1/a.txt")
+		message_repo.get_by_message_id.return_value = message
+
+		result = await service.get_file_for_user(message_id = 10, user_id = 1)
+
+		assert result.id == 10
+
+	async def test_get_file_for_user_permission_denied(self, file_service):
+		service, _, message_repo, _ = file_service
+		message_repo.get_by_message_id.return_value = SimpleNamespace(id = 10, user_id = 2, file_path = "2/a.txt")
+
+		with pytest.raises(MessagePermissionError):
+			await service.get_file_for_user(message_id = 10, user_id = 1)
+
+	async def test_get_file_for_user_not_found(self, file_service):
+		service, _, message_repo, _ = file_service
+		message_repo.get_by_message_id.side_effect = RepoMessageNotFoundError(message_id = 10)
+
+		with pytest.raises(MessageNotFoundError):
+			await service.get_file_for_user(message_id = 10, user_id = 1)

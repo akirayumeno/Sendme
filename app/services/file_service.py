@@ -8,6 +8,7 @@ from app.core.settings import settings
 from app.schemas.schemas import FileMessageCreate
 from app.services.exceptions import QuotaExceededError, FilePathNotFoundError, MessageNotFoundError, \
 	MessagePermissionError, FileUploadAbortedError
+from app.storage.exceptions import MessageNotFoundError as RepoMessageNotFoundError
 from app.storage.file_repo import FileRepo
 from app.storage.sqlalchemy_repo import MessageRepository, UserRepository
 
@@ -68,6 +69,7 @@ class FileService:
 		# schema.model_dump() already contains the finalized file_path and metadata
 		data = schema.model_dump()
 		data["status"] = MessageStatus.sent
+		data["mime_type"] = data.pop("file_type")
 		uploaded_messages = await self.message_repo.create_message(data)
 
 		# 5. Calculate capacity
@@ -125,10 +127,17 @@ class FileService:
 			)
 
 	async def get_file_path_for_user(self, message_id: int, user_id: int) -> str:
-		message = await self.message_repo.get_by_message_id(message_id)
+		message = await self.get_file_for_user(message_id = message_id, user_id = user_id)
 
-		if message.user_id != user_id:
-			raise MessagePermissionError("Message Permission denied.")
 		if not message.file_path:
 			raise FilePathNotFoundError("File was not found in the message.")
 		return message.file_path
+
+	async def get_file_for_user(self, message_id: int, user_id: int) -> Message:
+		try:
+			message = await self.message_repo.get_by_message_id(message_id)
+		except RepoMessageNotFoundError as e:
+			raise MessageNotFoundError("Message not found.")
+		if message.user_id != user_id:
+			raise MessagePermissionError("Message Permission denied.")
+		return message

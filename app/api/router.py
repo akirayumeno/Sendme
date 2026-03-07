@@ -119,8 +119,22 @@ async def view_file(
 		file_repo: FileRepo = Depends(get_file_repo),
 		service: FileService = Depends(get_file_service),
 ):
-	file_path = await service.get_file_path_for_user(message_id = message_id, user_id = user_id)
-	return _file_response(file_repo, file_path, as_download = False)
+	try:
+		message = await service.get_file_for_user(message_id = message_id, user_id = user_id)
+	except Exception as exc:
+		raise HTTPException(status_code = 404, detail = "File not found") from exc
+
+	if message.type != MessageType.image:
+		raise HTTPException(status_code = 415, detail = "Preview is only available for image messages.")
+
+	if not message.file_path:
+		raise HTTPException(status_code = 404, detail = "File not found.")
+
+	full_path = (file_repo.upload_dir / message.file_path).resolve()
+	if not full_path.exists():
+		raise HTTPException(status_code = 404, detail = "File not found.")
+
+	return FileResponse(path = str(full_path))
 
 
 @router.delete("/{message_id}")

@@ -31,7 +31,7 @@ class Message(Base):
 	# File content
 	file_id = Column(Uuid(as_uuid = True), default = uuid.uuid4, nullable = True)
 	file_name = Column(String(255), nullable = True)
-	file_size_bytes = Column(Integer, nullable = True)
+	file_size = Column(Integer, nullable = True)
 	file_path = Column(String(500), nullable = True)
 	original_filename = Column(String(255), nullable = True)
 

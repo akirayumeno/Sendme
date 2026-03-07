@@ -155,7 +155,7 @@ class MessageRepository(AbstractMessageRepository):
 	async def delete_message(self, message_id: int) -> int:
 		"""Permanently delete the message record and return the file size for capacity deduction."""
 		# Get the file size first
-		stmt_size = select(Message.file_size_bytes).filter(Message.id == message_id)
+		stmt_size = select(Message.file_size).filter(Message.id == message_id)
 		result = await self.db.execute(stmt_size)
 		file_size = result.scalar() or 0
 		try:
@@ -210,7 +210,7 @@ class RefreshTokenRepository(AbstractRefreshTokenRepository):
 	async def delete_all_user_tokens(self, user_id: int):
 		try:
 			stmt = delete(RefreshToken).where(RefreshToken.user_id == user_id)
-			result = await self.db.execute(stmt)
+			await self.db.execute(stmt)
 			await self.db.commit()
 		except Exception as e:
 			await self.db.rollback()

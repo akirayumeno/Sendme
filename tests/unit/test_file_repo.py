@@ -1,4 +1,5 @@
 import pytest
+from io import BytesIO
 
 from app.storage.exceptions import FileWriteError, RepositoryError
 from app.storage.file_repo import FileRepo
@@ -35,6 +36,18 @@ class TestFileRepo:
 		temp_file = file_repo.temp_dir / filename
 		assert temp_file.exists()
 		assert temp_file.read_bytes() == b"Hello World"
+
+	async def test_save_success_with_sync_file_like_stream(self, file_repo):
+		"""UploadFile.file is a sync file object (SpooledTemporaryFile-like), should also be supported."""
+		filename = "sync_stream.txt"
+		stream = BytesIO(b"hello from sync stream")
+
+		bytes_written = await file_repo.save(stream, filename)
+
+		assert bytes_written == len(b"hello from sync stream")
+		temp_file = file_repo.temp_dir / filename
+		assert temp_file.exists()
+		assert temp_file.read_bytes() == b"hello from sync stream"
 
 	async def test_save_and_move_to_final(self, file_repo):
 		"""Test the full workflow: Save to temp then move to final."""
