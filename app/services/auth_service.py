@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from app.core import security
 from app.core.settings import settings
-from app.services.exceptions import OtpInvalidError, OtpLockedError, RateLimitError
+from app.services.exceptions import OtpInvalidError, OtpLockedError, RateLimitError, EmailDeliveryError
 from app.services.notification_service import notification_service
 from app.storage.abstract_metadata_repo import AbstractRefreshTokenRepository, AbstractUserRepository
 from app.storage.exceptions import UserConstraintError
@@ -28,8 +28,8 @@ class AuthService:
 
 	async def request_register_otp(self, email: str, username: str, password: str) -> dict:
 		"""
-		Step 1: create/update an unverified user in DB, then send OTP to email.
-		Only OTP state is kept in Redis.
+		Step 1: send OTP email first; only persist user after email delivery succeeds.
+		Redis stores OTP state only.
 		"""
 		if await self.redis_repo.is_otp_locked(email):
 			raise OtpLockedError("Too many failed attempts. Try again later.")
@@ -39,16 +39,29 @@ class AuthService:
 		existing_by_email = await self.user_repo.get_user_by_email(email)
 		existing_by_username = await self.user_repo.get_user_by_username(username)
 
-		# Username cannot belong to another account.
+		# username cannot belong to another account
 		if existing_by_username and (not existing_by_email or existing_by_username.id != existing_by_email.id):
 			raise UserConstraintError(f"Username {username} already exists.")
 
-		# Verified email cannot register again.
+		# already verified account cannot re-register
 		if existing_by_email and existing_by_email.is_verified:
 			raise UserConstraintError(f"Email {email} already exists.")
 
+		otp = self._generate_otp()
 		hashed_password = security.hash_password(password)
 
+		# 1) write OTP state first
+		await self.redis_repo.set_otp(email, otp, ex = settings.OTP_EXPIRATION_SECONDS)
+		await self.redis_repo.set_otp_cooldown(email, settings.OTP_RESEND_COOLDOWN_SECONDS)
+
+		# 2) send email; if fails, rollback OTP state
+		try:
+			await notification_service.send_verification_mail(email, username, otp)
+		except Exception:
+			await self.redis_repo.clear_otp_state(email)
+			raise EmailDeliveryError
+
+		# 3) persist/update unverified user only after email sent
 		if existing_by_email:
 			await self.user_repo.update_user(
 				existing_by_email.id,
@@ -66,11 +79,6 @@ class AuthService:
 				is_verified = False,
 			)
 
-		otp = self._generate_otp()
-		await self.redis_repo.set_otp(email, otp, ex = settings.OTP_EXPIRATION_SECONDS)
-		await self.redis_repo.set_otp_cooldown(email, settings.OTP_RESEND_COOLDOWN_SECONDS)
-
-		await notification_service.send_verification_mail(email, username, otp)
 		return {"message":"Verification code sent."}
 
 	async def register_with_otp(self, email: str, otp_code: str) -> dict:

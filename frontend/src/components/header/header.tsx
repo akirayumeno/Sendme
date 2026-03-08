@@ -5,7 +5,7 @@ import type {ThemeConfig} from "../../types/type";
 interface HeaderProps {
     messageCount: number;
     themeConfig: ThemeConfig;
-    onLogout: () => void; // 声明组件需要这个 prop
+    onLogout: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({messageCount, themeConfig, onLogout}) => {
@@ -33,8 +33,9 @@ const Header: React.FC<HeaderProps> = ({messageCount, themeConfig, onLogout}) =>
                 {/* Log out button */}
                 <button
                     onClick={onLogout}
-                    className={`focus:outline-none p-2 rounded-lg transition-colors 
-            ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-200'}`
+                    className={`focus:outline-none p-2 rounded-lg transition-colors ${
+                        isDark ? 'bg-gray-700 hover:bg-gray-600' : 'bg-white hover:bg-gray-100'
+                    }`
                     }
                     aria-label="Logout"
                 >

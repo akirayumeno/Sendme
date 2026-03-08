@@ -16,7 +16,7 @@ from app.core.dependencies import (
 from app.storage.file_repo import FileRepo
 
 
-def _msg_payload(msg_id: str, msg_type: str = "text") -> dict:
+def _msg_payload(msg_id: int, msg_type: str = "text") -> dict:
 	now = datetime.now(timezone.utc).isoformat()
 	return {
 		"id": msg_id,
@@ -35,8 +35,8 @@ def test_send_text_and_history():
 	with TemporaryDirectory() as tmp:
 		file_repo = FileRepo(upload_dir=Path(tmp))
 
-		message_service.create_text_message.return_value = _msg_payload("1")
-		message_service.get_history.return_value = [_msg_payload("1")]
+		message_service.create_text_message.return_value = _msg_payload(1)
+		message_service.get_history.return_value = [_msg_payload(1)]
 
 		app = FastAPI()
 		app.include_router(message_router, prefix="/api/v1")
@@ -48,7 +48,7 @@ def test_send_text_and_history():
 
 		resp = client.post("/api/v1/messages/text", json={"content": "hello", "device": "desktop"})
 		assert resp.status_code == 200
-		assert resp.json()["id"] == "1"
+		assert resp.json()["id"] == 1
 
 		history = client.get("/api/v1/messages/history")
 		assert history.status_code == 200
@@ -72,8 +72,13 @@ def test_upload_download_view():
 			"size_bytes": 4,
 			"mime_type": "text/plain",
 		}
-		file_service.finalize_file_message.return_value = _msg_payload("2", msg_type="file")
+		file_service.finalize_file_message.return_value = _msg_payload(2, msg_type="file")
 		file_service.get_file_path_for_user.return_value = "1/demo.txt"
+		file_service.get_file_for_user.return_value = type(
+			"FileMessage",
+			(),
+			{"type": "file", "file_path": "1/demo.txt", "user_id": 1},
+		)()
 
 		app = FastAPI()
 		app.include_router(message_router, prefix="/api/v1")
@@ -95,5 +100,4 @@ def test_upload_download_view():
 		assert download.content == b"demo"
 
 		view = client.get("/api/v1/messages/2/view")
-		assert view.status_code == 200
-		assert view.content == b"demo"
+		assert view.status_code == 415

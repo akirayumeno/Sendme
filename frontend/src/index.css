@@ -32,6 +32,34 @@ body {
     min-height: 100vh;
 }
 
+/* Keep browser autofill from forcing white background in auth forms */
+input.autofill-fix:-webkit-autofill,
+input.autofill-fix:-webkit-autofill:hover,
+input.autofill-fix:-webkit-autofill:focus,
+input.autofill-fix:-webkit-autofill:active {
+    -webkit-text-fill-color: #111827 !important;
+    caret-color: #111827;
+    -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+    box-shadow: 0 0 0 1000px #ffffff inset !important;
+    transition: background-color 9999s ease-out 0s, color 9999s ease-out 0s;
+}
+
+input.autofill-fix:-moz-autofill {
+    color: inherit;
+    box-shadow: 0 0 0 1000px transparent inset;
+}
+
+/* Dark theme override for autofill */
+.bg-gray-900 input.autofill-fix:-webkit-autofill,
+.bg-gray-900 input.autofill-fix:-webkit-autofill:hover,
+.bg-gray-900 input.autofill-fix:-webkit-autofill:focus,
+.bg-gray-900 input.autofill-fix:-webkit-autofill:active {
+    -webkit-text-fill-color: #ffffff !important;
+    caret-color: #ffffff;
+    -webkit-box-shadow: 0 0 0 1000px #1f2937 inset !important;
+    box-shadow: 0 0 0 1000px #1f2937 inset !important;
+}
+
 h1 {
     font-size: 3.2em;
     line-height: 1.1;

@@ -54,8 +54,9 @@ const Login: React.FC<LoginProps> = ({themeConfig, onLoginAttempt, onSwitchToReg
                             type="text"
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
+                            autoComplete="username"
                             required
-                            className={`w-full p-3 border rounded-xl focus:ring-blue-500 focus:border-blue-500 ${inputClasses}`}
+                            className={`w-full p-3 border rounded-xl focus:ring-blue-500 focus:border-blue-500 focus:placeholder-transparent ${inputClasses} autofill-fix`}
                             placeholder="Enter your username"
                             disabled={isLoading}
                         />
@@ -74,8 +75,9 @@ const Login: React.FC<LoginProps> = ({themeConfig, onLoginAttempt, onSwitchToReg
                             type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
+                            autoComplete="current-password"
                             required
-                            className={`w-full p-3 border rounded-xl focus:ring-blue-500 focus:border-blue-500 ${inputClasses}`}
+                            className={`w-full p-3 border rounded-xl focus:ring-blue-500 focus:border-blue-500 focus:placeholder-transparent ${inputClasses} autofill-fix`}
                             placeholder="Enter your password"
                             disabled={isLoading}
                         />
@@ -119,7 +121,7 @@ const Login: React.FC<LoginProps> = ({themeConfig, onLoginAttempt, onSwitchToReg
                         <button
                             type="button"
                             onClick={onSwitchToRegister}
-                            className="font-medium text-blue-500 hover:text-blue-400 ml-1 transition-colors"
+                            className="font-medium text-blue-500 hover:text-blue-400 ml-3 transition-colors"
                             disabled={isLoading}
                         >
                             Sign Up Now
