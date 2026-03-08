@@ -32,6 +32,7 @@ const SendMeResponsive = () => {
         messagesEndRef.current?.scrollIntoView({behavior, block: 'end'});
     };
 
+    // Convert raw bytes into a readable size string for UI display.
     const formatFileSize = (bytes: number): string => {
         if (bytes === 0) return "0 Bytes";
         const k = 1024;
@@ -40,6 +41,7 @@ const SendMeResponsive = () => {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
     };
 
+    // Normalize backend timestamps to a consistent local display format.
     const formatTimestamp = (date: Date | string): string => {
         const dateObj = typeof date === 'string' ? new Date(date) : date;
         const options: Intl.DateTimeFormatOptions = {
@@ -54,17 +56,20 @@ const SendMeResponsive = () => {
         return dateObj.toLocaleTimeString('ja-JP', options);
     };
 
+    // Build Authorization header from localStorage token.
     const getTokenHeader = () => {
         const token = localStorage.getItem('authToken');
         return token ? {'Authorization': `Bearer ${token}`} : {};
     };
 
+    // Map backend message status enum to frontend UI status.
     const mapServerStatus = (status: string): Message['status'] => {
         if (status === 'SENT') return 'success';
         if (status === 'PROCESSING') return 'uploading';
         return 'error';
     };
 
+    // Fetch protected image blob and convert to object URL for preview rendering.
     const fetchProtectedImageUrl = async (messageId: string): Promise<string | undefined> => {
         try {
             const response = await axios.get(`${API_BASE_URL}/messages/${messageId}/view`, {
@@ -78,6 +83,7 @@ const SendMeResponsive = () => {
         }
     };
 
+    // Pull history from backend and merge with local pending messages.
     const fetchMessages = async () => {
         setIsLoading(true);
         try {
@@ -126,6 +132,7 @@ const SendMeResponsive = () => {
         }
     };
 
+    // Stop fallback polling timer when websocket is healthy.
     const stopPolling = () => {
         if (pollingRef.current) {
             window.clearInterval(pollingRef.current);
@@ -133,6 +140,7 @@ const SendMeResponsive = () => {
         }
     };
 
+    // Start 3-second polling fallback when websocket is unavailable.
     const startPolling = () => {
         if (pollingRef.current) return;
         pollingRef.current = window.setInterval(() => {
@@ -140,6 +148,7 @@ const SendMeResponsive = () => {
         }, 3000);
     };
 
+    // Debounce repeated realtime events to avoid bursty history requests.
     const scheduleFetchMessages = () => {
         if (wsFetchDebounceRef.current) {
             window.clearTimeout(wsFetchDebounceRef.current);
@@ -149,6 +158,7 @@ const SendMeResponsive = () => {
         }, 120);
     };
 
+    // Connect realtime websocket; auto fallback to polling on disconnect.
     const connectWebSocket = () => {
         const token = localStorage.getItem('authToken');
         if (!token) return;
@@ -222,6 +232,7 @@ const SendMeResponsive = () => {
         };
     }, [isLoggedIn]);
 
+    // Clear session state and close realtime channels.
     const handleLogout = () => {
         stopPolling();
         if (wsReconnectRef.current) {
@@ -237,6 +248,7 @@ const SendMeResponsive = () => {
         setAuthError(null);
     };
 
+    // Login flow: exchange credentials for JWT then bootstrap messages.
     const handleLoginAttempt = async (username: string, password: string) => {
         setAuthError(null);
         setAuthLoading(true);
@@ -264,6 +276,7 @@ const SendMeResponsive = () => {
         }
     };
 
+    // Trigger OTP email for registration step 1.
     const handleRequestOtp = async (email: string, username: string, password: string) => {
         setAuthError(null);
         setAuthLoading(true);
@@ -284,6 +297,7 @@ const SendMeResponsive = () => {
         }
     };
 
+    // Complete registration by verifying OTP code.
     const handleRegisterAttempt = async (email: string, otpCode: string) => {
         setAuthError(null);
         setAuthLoading(true);
@@ -305,6 +319,7 @@ const SendMeResponsive = () => {
         }
     };
 
+    // Optimistic text send with temporary local message replacement.
     const handleTextSend = async () => {
         if (!inputText.trim()) return;
 
@@ -356,6 +371,7 @@ const SendMeResponsive = () => {
         }
     };
 
+    // Queue selected files as optimistic messages, then upload sequentially.
     const handleFileUpload = async (files: File[]) => {
         const newMessages: Message[] = files.map(file => ({
             id: `file_${crypto.randomUUID()}`,
@@ -383,6 +399,7 @@ const SendMeResponsive = () => {
         await fetchMessages();
     };
 
+    // Upload a single file with progress tracking and result reconciliation.
     const uploadFile = async (message: Message, file: File) => {
         if (uploadingIdsRef.current.has(message.id)) {
             return;
@@ -450,6 +467,7 @@ const SendMeResponsive = () => {
         }
     };
 
+    // Copy message content to clipboard.
     const handleCopy = async (_id: string, content: string) => {
         try {
             await navigator.clipboard.writeText(content);
@@ -458,6 +476,7 @@ const SendMeResponsive = () => {
         }
     };
 
+    // Delete message both in backend and local list.
     const handleDeleteMessage = async (id: string) => {
         if (id.startsWith('text_') || id.startsWith('file_')) {
             setMessages(prev => prev.filter(msg => msg.id !== id));

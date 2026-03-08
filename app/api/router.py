@@ -24,12 +24,14 @@ router = APIRouter(prefix = "/messages", tags = ["messages"])
 
 
 def _extract_message_id(message) -> int | str | None:
+	"""Supports both ORM objects and dict payloads used by tests/fakes."""
 	if isinstance(message, dict):
 		return message.get("id")
 	return getattr(message, "id", None)
 
 
 def _resolve_file_path(file_repo: FileRepo, relative_path: str) -> Path:
+	"""Resolve and validate a file path under upload root to prevent traversal."""
 	full_path = (file_repo.upload_dir / relative_path).resolve()
 	upload_root = file_repo.upload_dir.resolve()
 	if upload_root not in full_path.parents:
@@ -38,6 +40,7 @@ def _resolve_file_path(file_repo: FileRepo, relative_path: str) -> Path:
 
 
 def _file_response(file_repo: FileRepo, relative_path: str, as_download: bool) -> FileResponse:
+	"""Build a file response with optional download filename behavior."""
 	full_path = _resolve_file_path(file_repo, relative_path)
 	if not full_path.exists():
 		raise HTTPException(status_code = 404, detail = "File not found.")
@@ -51,6 +54,7 @@ async def send_text(
 		user_id: int = Depends(get_current_user_id),
 		service: MessageService = Depends(get_message_service),
 ):
+	"""Create text message and emit realtime update event."""
 	schema = TextMessageCreate(
 		user_id = user_id,
 		content = payload.content,
@@ -72,6 +76,7 @@ async def get_history(
 		user_id: int = Depends(get_current_user_id),
 		service: MessageService = Depends(get_message_service),
 ):
+	"""Return paginated message history for current user."""
 	return await service.get_history(user_id = user_id, page = page)
 
 
@@ -82,6 +87,7 @@ async def upload_file(
 		user_id: int = Depends(get_current_user_id),
 		service: FileService = Depends(get_file_service),
 ):
+	"""Handle file upload, persist metadata, and emit realtime update."""
 	if not file.filename:
 		raise HTTPException(status_code = 400, detail = "Missing filename.")
 
@@ -127,6 +133,7 @@ async def download_file(
 		file_repo: FileRepo = Depends(get_file_repo),
 		service: FileService = Depends(get_file_service),
 ):
+	"""Download file by message id with owner permission check."""
 	file_path = await service.get_file_path_for_user(message_id = message_id, user_id = user_id)
 	return _file_response(file_repo, file_path, as_download = True)
 
@@ -138,6 +145,7 @@ async def view_file(
 		file_repo: FileRepo = Depends(get_file_repo),
 		service: FileService = Depends(get_file_service),
 ):
+	"""Inline preview endpoint (image messages only)."""
 	try:
 		message = await service.get_file_for_user(message_id = message_id, user_id = user_id)
 	except Exception as exc:
@@ -162,6 +170,7 @@ async def delete_message(
 		user_id: int = Depends(get_current_user_id),
 		service: MessageService = Depends(get_message_service),
 ):
+	"""Delete message and emit realtime delete event."""
 	await service.delete_message(message_id = message_id, user_id = user_id)
 	await ws_manager.broadcast_to_user(
 		user_id,

@@ -8,6 +8,11 @@ router = APIRouter(prefix = "/ws", tags = ["realtime"])
 
 @router.websocket("/messages")
 async def messages_ws(websocket: WebSocket):
+	"""WebSocket endpoint for per-user realtime message events.
+
+	Client must pass access token via query string: ?token=<jwt>.
+	Once connected, server can push message update/delete events to this socket.
+	"""
 	token = websocket.query_params.get("token")
 	if not token:
 		await websocket.close(code = 1008, reason = "Missing token")

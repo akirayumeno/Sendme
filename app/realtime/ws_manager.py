@@ -6,6 +6,8 @@ from fastapi import WebSocket
 
 
 class ConnectionManager:
+	"""Tracks active websocket sessions and sends events to target users."""
+
 	def __init__(self):
 		# Store active connections: {user_id: {websocket1, websocket2}}
 		# Using a set allows a single user to stay connected on multiple devices (phone/PC)
