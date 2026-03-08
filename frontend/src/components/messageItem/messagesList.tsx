@@ -8,14 +8,29 @@ interface MessagesListProps {
     onDelete: (id: string) => void;
     themeConfig: ThemeConfig;
     messagesEndRef: RefObject<HTMLDivElement | null>;
+    messagesContainerRef: RefObject<HTMLDivElement | null>;
+    onMessagesScroll?: () => void;
     onMediaLoad?: () => void;
 }
 
-const MessagesList: React.FC<MessagesListProps> = ({messages, onCopy, onDelete, themeConfig, messagesEndRef, onMediaLoad}) => {
+const MessagesList: React.FC<MessagesListProps> = ({
+    messages,
+    onCopy,
+    onDelete,
+    themeConfig,
+    messagesEndRef,
+    messagesContainerRef,
+    onMessagesScroll,
+    onMediaLoad
+}) => {
     const isDark = themeConfig.themeClasses.includes('bg-gray-900');
 
     return (
-        <div className="flex-1 overflow-y-auto p-6">
+        <div
+            ref={messagesContainerRef}
+            onScroll={onMessagesScroll}
+            className="flex-1 overflow-y-auto p-6"
+        >
             <div className="space-y-4 max-w-3xl mx-auto">
                 {messages.length === 0 ? (
                     <div className="text-center py-12">

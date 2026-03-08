@@ -23,13 +23,22 @@ const SendMeResponsive = () => {
     const [authLoading, setAuthLoading] = useState<boolean>(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
     const uploadingIdsRef = useRef<Set<string>>(new Set());
     const wsRef = useRef<WebSocket | null>(null);
     const wsReconnectRef = useRef<number | null>(null);
     const wsFetchDebounceRef = useRef<number | null>(null);
     const pollingRef = useRef<number | null>(null);
+    const shouldStickToBottomRef = useRef<boolean>(true);
     const scrollToBottom = (behavior: ScrollBehavior = 'auto') => {
         messagesEndRef.current?.scrollIntoView({behavior, block: 'end'});
+    };
+
+    const isNearBottom = () => {
+        const el = messagesContainerRef.current;
+        if (!el) return true;
+        const gap = el.scrollHeight - el.scrollTop - el.clientHeight;
+        return gap < 120;
     };
 
     // Convert raw bytes into a readable size string for UI display.
@@ -200,6 +209,7 @@ const SendMeResponsive = () => {
     }, []);
 
     useLayoutEffect(() => {
+        if (!shouldStickToBottomRef.current) return;
         scrollToBottom('auto');
         const timer = window.setTimeout(() => scrollToBottom('auto'), 80);
         return () => window.clearTimeout(timer);
@@ -322,6 +332,7 @@ const SendMeResponsive = () => {
     // Optimistic text send with temporary local message replacement.
     const handleTextSend = async () => {
         if (!inputText.trim()) return;
+        shouldStickToBottomRef.current = true;
 
         const tempId = `text_${crypto.randomUUID()}`;
         const textMessage: Message = {
@@ -373,6 +384,7 @@ const SendMeResponsive = () => {
 
     // Queue selected files as optimistic messages, then upload sequentially.
     const handleFileUpload = async (files: File[]) => {
+        shouldStickToBottomRef.current = true;
         const newMessages: Message[] = files.map(file => ({
             id: `file_${crypto.randomUUID()}`,
             type: file.type.startsWith('image/') ? 'image' : 'file',
@@ -478,6 +490,7 @@ const SendMeResponsive = () => {
 
     // Delete message both in backend and local list.
     const handleDeleteMessage = async (id: string) => {
+        shouldStickToBottomRef.current = isNearBottom();
         if (id.startsWith('text_') || id.startsWith('file_')) {
             setMessages(prev => prev.filter(msg => msg.id !== id));
             return;
@@ -547,7 +560,15 @@ const SendMeResponsive = () => {
                         onDelete={handleDeleteMessage}
                         themeConfig={themeConfig}
                         messagesEndRef={messagesEndRef}
-                        onMediaLoad={() => scrollToBottom('auto')}
+                        messagesContainerRef={messagesContainerRef}
+                        onMessagesScroll={() => {
+                            shouldStickToBottomRef.current = isNearBottom();
+                        }}
+                        onMediaLoad={() => {
+                            if (shouldStickToBottomRef.current) {
+                                scrollToBottom('auto');
+                            }
+                        }}
                     />
                 )}
 
