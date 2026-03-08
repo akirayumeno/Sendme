@@ -90,7 +90,24 @@ Messages:
 
 Detailed API doc: `docs/API.md`
 
-## 6. Recommended End-to-End Flow
+## 6. Realtime Sync (WebSocket)
+
+WebSocket endpoint:
+- `WS /api/v1/ws/messages?token=<access_token>`
+
+How it works:
+- Login first to get `access_token`
+- Frontend connects WS with token in query
+- Backend pushes events when message changes:
+  - `message.updated`
+  - `message.deleted`
+- Frontend receives event and refreshes history
+
+Fallback strategy:
+- If websocket disconnects, frontend falls back to 3-second polling
+- When websocket reconnects, polling stops
+
+## 7. Recommended End-to-End Flow
 
 1. Request OTP: `POST /auth/request-otp`
 2. Register with OTP: `POST /auth/register-with-otp`
@@ -101,7 +118,7 @@ Detailed API doc: `docs/API.md`
 7. Pull history: `GET /messages/history`
 8. Download/view/delete by message id
 
-## 7. TTL & Capacity
+## 8. TTL & Capacity
 
 - `MESSAGE_TTL_SECONDS` (default `86400`) controls expiration.
 - New messages are indexed in Redis for TTL cleanup.
@@ -111,7 +128,7 @@ Detailed API doc: `docs/API.md`
   - Primary: WebSocket event-driven refresh
   - Fallback: polling every 3 seconds when WS disconnects
 
-## 8. Testing
+## 9. Testing
 
 Backend (container):
 ```bash
@@ -129,7 +146,69 @@ cd frontend
 npm run build
 ```
 
-## 9. Common Issues
+## 10. Release Guide
+
+Recommended release style: semantic version tags (`vX.Y.Z`)
+
+### 10.1 Prepare release branch state
+```bash
+git checkout main
+git pull origin main
+```
+
+### 10.2 Run local verification
+```bash
+docker compose run --rm backend pytest -q
+cd frontend && npm run build
+```
+
+### 10.3 Create and push tag
+```bash
+git tag -a v1.0.0 -m "Release v1.0.0"
+git push origin main
+git push origin v1.0.0
+```
+
+### 10.4 Create GitHub Release
+- Open GitHub repository -> Releases -> Draft a new release
+- Select tag (`v1.0.0`)
+- Add release notes:
+  - Features
+  - Fixes
+  - Breaking changes (if any)
+
+## 11. Deployment Guide
+
+Current CD workflow:
+- Push to `main/master` triggers `.github/workflows/cd.yml`
+- Build backend image and push to GHCR:
+  - `ghcr.io/<owner>/<repo>/backend:<tag>`
+
+### 11.1 Required GitHub settings
+- Repository Actions enabled
+- Workflow permissions allow package write
+- Optional secret:
+  - `DEPLOY_WEBHOOK_URL` (if you want auto deploy trigger)
+
+### 11.2 Deploy options
+
+Option A: Webhook-based platform (Render/Railway/Fly with webhook)
+- Configure platform to pull latest image tag
+- Add `DEPLOY_WEBHOOK_URL` in GitHub secrets
+- CD will call webhook after image push
+
+Option B: Manual Docker deploy on server
+```bash
+docker pull ghcr.io/<owner>/<repo>/backend:latest
+docker stop sendme-backend || true
+docker rm sendme-backend || true
+docker run -d --name sendme-backend \
+  -p 8000:8000 \
+  --env-file .env \
+  ghcr.io/<owner>/<repo>/backend:latest
+```
+
+## 12. Common Issues
 
 - `401 Unauthorized` on `/messages/history` at startup:
   - clear stale `authToken` in localStorage and login again.
@@ -138,7 +217,7 @@ npm run build
 - OTP send returns `503`:
   - verify SMTP config and provider limits.
 
-## 10. CI/CD (GitHub Actions)
+## 13. CI/CD (GitHub Actions)
 
 ### CI
 - Workflow file: `.github/workflows/ci.yml`

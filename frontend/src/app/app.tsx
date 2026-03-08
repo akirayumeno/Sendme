@@ -30,6 +30,8 @@ const SendMeResponsive = () => {
     const wsFetchDebounceRef = useRef<number | null>(null);
     const pollingRef = useRef<number | null>(null);
     const shouldStickToBottomRef = useRef<boolean>(true);
+    const preserveDistanceFromBottomRef = useRef<number | null>(null);
+    const deletingMessageIdRef = useRef<string | null>(null);
     const scrollToBottom = (behavior: ScrollBehavior = 'auto') => {
         messagesEndRef.current?.scrollIntoView({behavior, block: 'end'});
     };
@@ -93,13 +95,13 @@ const SendMeResponsive = () => {
     };
 
     // Pull history from backend and merge with local pending messages.
-    const fetchMessages = async () => {
-        setIsLoading(true);
+    const fetchMessages = async ({silent = false}: {silent?: boolean} = {}) => {
+        if (!silent) setIsLoading(true);
         try {
             const token = localStorage.getItem('authToken');
             if (!token) {
                 setIsLoggedIn(false);
-                setIsLoading(false);
+                if (!silent) setIsLoading(false);
                 return;
             }
 
@@ -137,7 +139,7 @@ const SendMeResponsive = () => {
             console.error("Error fetching messages:", error);
             handleLogout();
         } finally {
-            setIsLoading(false);
+            if (!silent) setIsLoading(false);
         }
     };
 
@@ -153,7 +155,7 @@ const SendMeResponsive = () => {
     const startPolling = () => {
         if (pollingRef.current) return;
         pollingRef.current = window.setInterval(() => {
-            fetchMessages();
+            fetchMessages({silent: true});
         }, 3000);
     };
 
@@ -163,7 +165,7 @@ const SendMeResponsive = () => {
             window.clearTimeout(wsFetchDebounceRef.current);
         }
         wsFetchDebounceRef.current = window.setTimeout(() => {
-            fetchMessages();
+            fetchMessages({silent: true});
         }, 120);
     };
 
@@ -181,7 +183,21 @@ const SendMeResponsive = () => {
             stopPolling();
         };
 
-        ws.onmessage = () => {
+        ws.onmessage = (event) => {
+            try {
+                const payload = JSON.parse(event.data);
+                const deletingId = deletingMessageIdRef.current;
+                if (
+                    deletingId &&
+                    payload?.event === 'message.deleted' &&
+                    String(payload?.message_id) === String(deletingId)
+                ) {
+                    deletingMessageIdRef.current = null;
+                    return;
+                }
+            } catch {
+                // Non-JSON payload; keep fallback behavior.
+            }
             scheduleFetchMessages();
         };
 
@@ -209,6 +225,15 @@ const SendMeResponsive = () => {
     }, []);
 
     useLayoutEffect(() => {
+        if (preserveDistanceFromBottomRef.current !== null) {
+            const container = messagesContainerRef.current;
+            if (container) {
+                const nextTop = container.scrollHeight - preserveDistanceFromBottomRef.current;
+                container.scrollTop = Math.max(0, nextTop);
+            }
+            preserveDistanceFromBottomRef.current = null;
+            return;
+        }
         if (!shouldStickToBottomRef.current) return;
         scrollToBottom('auto');
         const timer = window.setTimeout(() => scrollToBottom('auto'), 80);
@@ -490,7 +515,13 @@ const SendMeResponsive = () => {
 
     // Delete message both in backend and local list.
     const handleDeleteMessage = async (id: string) => {
-        shouldStickToBottomRef.current = isNearBottom();
+        const container = messagesContainerRef.current;
+        const nearBottom = isNearBottom();
+        shouldStickToBottomRef.current = nearBottom;
+        if (container && !nearBottom) {
+            preserveDistanceFromBottomRef.current = container.scrollHeight - container.scrollTop;
+        }
+        deletingMessageIdRef.current = id;
         if (id.startsWith('text_') || id.startsWith('file_')) {
             setMessages(prev => prev.filter(msg => msg.id !== id));
             return;
