@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app.api import router as message_router_module
 from app.api.router import router as message_router
 from app.core.dependencies import (
 	get_current_user_id,
@@ -29,9 +30,11 @@ def _msg_payload(msg_id: int, msg_type: str = "text") -> dict:
 	}
 
 
-def test_send_text_and_history():
+def test_send_text_and_history(monkeypatch):
 	message_service = AsyncMock()
 	file_service = AsyncMock()
+	ws_broadcast = AsyncMock()
+	monkeypatch.setattr(message_router_module.ws_manager, "broadcast_to_user", ws_broadcast)
 	with TemporaryDirectory() as tmp:
 		file_repo = FileRepo(upload_dir=Path(tmp))
 
@@ -49,16 +52,18 @@ def test_send_text_and_history():
 		resp = client.post("/api/v1/messages/text", json={"content": "hello", "device": "desktop"})
 		assert resp.status_code == 200
 		assert resp.json()["id"] == 1
+		ws_broadcast.assert_awaited()
 
 		history = client.get("/api/v1/messages/history")
 		assert history.status_code == 200
 		assert len(history.json()) == 1
 
 
-
-def test_upload_download_view():
+def test_upload_download_view(monkeypatch):
 	message_service = AsyncMock()
 	file_service = AsyncMock()
+	ws_broadcast = AsyncMock()
+	monkeypatch.setattr(message_router_module.ws_manager, "broadcast_to_user", ws_broadcast)
 	with TemporaryDirectory() as tmp:
 		file_repo = FileRepo(upload_dir=Path(tmp))
 		user_dir = file_repo.upload_dir / "1"
@@ -94,6 +99,7 @@ def test_upload_download_view():
 			data={"device": "desktop"},
 		)
 		assert upload.status_code == 200
+		ws_broadcast.assert_awaited()
 
 		download = client.get("/api/v1/messages/2/download")
 		assert download.status_code == 200

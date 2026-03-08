@@ -47,5 +47,9 @@ class ConnectionManager:
 		for user_id in list(self._connections.keys()):
 			await self.send_personal_message(user_id, payload)
 
+	async def broadcast_to_user(self, user_id: int, payload: dict):
+		"""Backward-compatible alias used by API routers."""
+		await self.send_personal_message(user_id, payload)
+
 
 ws_manager = ConnectionManager()
