@@ -10,6 +10,7 @@ from app.services.exceptions import QuotaExceededError, FilePathNotFoundError, M
 	MessagePermissionError, FileUploadAbortedError
 from app.storage.exceptions import MessageNotFoundError as RepoMessageNotFoundError
 from app.storage.file_repo import FileRepo
+from app.storage.redis_repo import RedisRepo
 from app.storage.sqlalchemy_repo import MessageRepository, UserRepository
 
 
@@ -19,10 +20,17 @@ class FileService:
 	bridging the gap between physical storage (FileRepo) and database records (MessageRepo).
 	"""
 
-	def __init__(self, file_repo: FileRepo, message_repo: MessageRepository, user_repo: UserRepository):
+	def __init__(
+			self,
+			file_repo: FileRepo,
+			message_repo: MessageRepository,
+			user_repo: UserRepository,
+			redis_repo: RedisRepo,
+	):
 		self.file_repo = file_repo
 		self.message_repo = message_repo
 		self.user_repo = user_repo
+		self.redis_repo = redis_repo
 
 	async def handle_initial_upload(self, file: UploadFile) -> dict:
 		"""
@@ -71,6 +79,7 @@ class FileService:
 		data["status"] = MessageStatus.sent
 		data["mime_type"] = data.pop("file_type")
 		uploaded_messages = await self.message_repo.create_message(data)
+		await self.redis_repo.set_message_ttl(uploaded_messages.id)
 
 		# 5. Calculate capacity
 		await self.user_repo.update_used_capacity(schema.user_id, file_size)
@@ -108,7 +117,17 @@ class FileService:
 			await self.file_repo.delete(message.file_path, is_temp = False)
 		else:
 			raise FilePathNotFoundError("File was not found in the message.")
+		await self.redis_repo.delete_timer(message_id)
 		return used_quota_bytes
+
+	async def delete_file_by_system(self, message_id: int) -> bool:
+		message = await self.message_repo.get_by_message_id(message_id)
+		released_bytes = await self.message_repo.delete_message(message_id)
+		await self.user_repo.update_used_capacity(message.user_id, -released_bytes)
+		if message.file_path:
+			await self.file_repo.delete(message.file_path, is_temp = False)
+		await self.redis_repo.delete_timer(message_id)
+		return True
 
 	async def _check_quota(self, user_id: int, temp_filename: str, file_size: int):
 		"""

@@ -1,4 +1,4 @@
-import {useEffect, useRef, useState} from 'react';
+import {useEffect, useLayoutEffect, useRef, useState} from 'react';
 import axios from 'axios';
 
 import {useTheme} from "../components/themes/theme.tsx";
@@ -23,6 +23,10 @@ const SendMeResponsive = () => {
     const [authLoading, setAuthLoading] = useState<boolean>(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const uploadingIdsRef = useRef<Set<string>>(new Set());
+    const scrollToBottom = (behavior: ScrollBehavior = 'auto') => {
+        messagesEndRef.current?.scrollIntoView({behavior, block: 'end'});
+    };
 
     const formatFileSize = (bytes: number): string => {
         if (bytes === 0) return "0 Bytes";
@@ -84,9 +88,14 @@ const SendMeResponsive = () => {
                 headers: getTokenHeader(),
             });
 
-            const data: Message[] = await Promise.all(response.data.map(async (msg: any) => {
+            const sortedServerMessages = [...response.data].sort(
+                (a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            );
+
+            const data: Message[] = await Promise.all(sortedServerMessages.map(async (msg: any) => {
                 const mapped: Message = {
                     ...msg,
+                    id: String(msg.id),
                     status: mapServerStatus(msg.status),
                     created_at: formatTimestamp(new Date(msg.created_at)),
                 };
@@ -98,7 +107,13 @@ const SendMeResponsive = () => {
                 return mapped;
             }));
 
-            setMessages(data);
+            setMessages(prev => {
+                const pendingLocal = prev.filter(msg =>
+                    msg.status !== 'success' &&
+                    (msg.id.startsWith('text_') || msg.id.startsWith('file_'))
+                );
+                return [...data, ...pendingLocal];
+            });
         } catch (error) {
             console.error("Error fetching messages:", error);
             handleLogout();
@@ -117,8 +132,10 @@ const SendMeResponsive = () => {
         }
     }, []);
 
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({behavior: "smooth"});
+    useLayoutEffect(() => {
+        scrollToBottom('auto');
+        const timer = window.setTimeout(() => scrollToBottom('auto'), 80);
+        return () => window.clearTimeout(timer);
     }, [messages]);
 
     const handleLogout = () => {
@@ -156,14 +173,26 @@ const SendMeResponsive = () => {
     };
 
     const handleRequestOtp = async (email: string, username: string, password: string) => {
-        await axios.post(`${API_BASE_URL}/auth/request-otp`, {
-            email,
-            username,
-            password,
-        });
+        setAuthError(null);
+        setAuthLoading(true);
+        try {
+            await axios.post(`${API_BASE_URL}/auth/request-otp`, {
+                email,
+                username,
+                password,
+            });
+        } catch (err) {
+            const message = axios.isAxiosError(err) && err.response?.data?.detail
+                ? err.response.data.detail
+                : 'Failed to send OTP.';
+            setAuthError(message);
+            throw err;
+        } finally {
+            setAuthLoading(false);
+        }
     };
 
-    const handleRegisterAttempt = async (email: string, otpCode: string, username: string, password: string) => {
+    const handleRegisterAttempt = async (email: string, otpCode: string) => {
         setAuthError(null);
         setAuthLoading(true);
 
@@ -172,13 +201,13 @@ const SendMeResponsive = () => {
                 email,
                 otp_code: otpCode,
             });
-
-            await handleLoginAttempt(username, password);
+            setIsRegisterView(false);
         } catch (err) {
             const message = axios.isAxiosError(err) && err.response?.data?.detail
                 ? err.response.data.detail
                 : 'Register failed. Please check email/otp.';
             setAuthError(message);
+            throw err;
         } finally {
             setAuthLoading(false);
         }
@@ -211,7 +240,8 @@ const SendMeResponsive = () => {
 
             const savedMessage: Message = {
                 ...response.data,
-                status: 'success',
+                id: String(response.data.id),
+                status: mapServerStatus(response.data.status),
                 created_at: formatTimestamp(new Date(response.data.created_at)),
             };
 
@@ -256,9 +286,17 @@ const SendMeResponsive = () => {
                 await uploadFile(message, message.file);
             }
         }
+
+        // Sync once after batch upload finishes, avoid per-file UI flicker.
+        await fetchMessages();
     };
 
     const uploadFile = async (message: Message, file: File) => {
+        if (uploadingIdsRef.current.has(message.id)) {
+            return;
+        }
+        uploadingIdsRef.current.add(message.id);
+
         const tempImageUrl = message.imageUrl;
         const formData = new FormData();
         formData.append('file', file);
@@ -279,11 +317,10 @@ const SendMeResponsive = () => {
                 },
             });
 
-            await fetchMessages();
-
             const savedMessage: Message = {
                 ...response.data,
-                status: 'success',
+                id: String(response.data.id),
+                status: mapServerStatus(response.data.status),
                 progress: 100,
                 created_at: formatTimestamp(new Date(response.data.created_at)),
             };
@@ -316,6 +353,8 @@ const SendMeResponsive = () => {
                     ? {...msg, status: 'error', progress: 0, error: errorMessage, imageUrl: undefined}
                     : msg
             ));
+        } finally {
+            uploadingIdsRef.current.delete(message.id);
         }
     };
 
@@ -324,6 +363,21 @@ const SendMeResponsive = () => {
             await navigator.clipboard.writeText(content);
         } catch (err) {
             console.error('Failed to copy: ', err);
+        }
+    };
+
+    const handleDeleteMessage = async (id: string) => {
+        if (id.startsWith('text_') || id.startsWith('file_')) {
+            setMessages(prev => prev.filter(msg => msg.id !== id));
+            return;
+        }
+        try {
+            await axios.delete(`${API_BASE_URL}/messages/${id}`, {
+                headers: getTokenHeader(),
+            });
+            setMessages(prev => prev.filter(msg => msg.id !== id));
+        } catch (error) {
+            console.error("Failed to delete message:", error);
         }
     };
 
@@ -379,8 +433,10 @@ const SendMeResponsive = () => {
                     <MessagesList
                         messages={messages}
                         onCopy={handleCopy}
+                        onDelete={handleDeleteMessage}
                         themeConfig={themeConfig}
                         messagesEndRef={messagesEndRef}
+                        onMediaLoad={() => scrollToBottom('auto')}
                     />
                 )}
 

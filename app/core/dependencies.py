@@ -52,16 +52,23 @@ def get_file_service(
 		file_repo: FileRepo = Depends(get_file_repo),
 		message_repo: MessageRepository = Depends(get_message_repository),
 		user_repo: UserRepository = Depends(get_user_repository),
+		redis_repo: RedisRepo = Depends(get_redis_repo),
 ) -> FileService:
-	return FileService(file_repo = file_repo, message_repo = message_repo, user_repo = user_repo)
+	return FileService(file_repo = file_repo, message_repo = message_repo, user_repo = user_repo, redis_repo = redis_repo)
 
 
 def get_message_service(
 		message_repo: MessageRepository = Depends(get_message_repository),
 		user_repo: UserRepository = Depends(get_user_repository),
 		file_service: FileService = Depends(get_file_service),
+		redis_repo: RedisRepo = Depends(get_redis_repo),
 ) -> MessageService:
-	return MessageService(message_repo = message_repo, user_repo = user_repo, file_service = file_service)
+	return MessageService(
+		message_repo = message_repo,
+		user_repo = user_repo,
+		file_service = file_service,
+		redis_repo = redis_repo,
+	)
 
 
 async def get_current_user_id(token: str = Depends(oauth2_scheme)) -> int:

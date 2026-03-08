@@ -1,3 +1,4 @@
+import time
 from typing import Optional
 
 from redis import asyncio as aioredis
@@ -24,15 +25,34 @@ def _lock_key(email: str) -> str:
 class RedisRepo:
 	def __init__(self, redis_url: str):
 		self.client = aioredis.from_url(redis_url, decode_responses = True)
+		self._ttl_index_key = "msg_ttl:index"
 
 	# --- Message TTL ---
 	async def set_message_ttl(self, message_id: int, expire_sec: int = settings.MESSAGE_TTL_SECONDS):
 		key = f"msg_ttl:{message_id}"
-		await self.client.set(key, "active", expire_sec)
+		expire_at = int(time.time()) + expire_sec
+		async with self.client.pipeline(transaction = True) as pipe:
+			await pipe.set(key, "active", ex = expire_sec)
+			await pipe.zadd(self._ttl_index_key, {str(message_id): expire_at})
+			await pipe.execute()
 
 	async def delete_timer(self, message_id: int):
 		key = f"msg_ttl:{message_id}"
-		await self.client.delete(key)
+		async with self.client.pipeline(transaction = True) as pipe:
+			await pipe.delete(key)
+			await pipe.zrem(self._ttl_index_key, str(message_id))
+			await pipe.execute()
+
+	async def get_expired_message_ids(self, limit: int = 100) -> list[int]:
+		now_ts = int(time.time())
+		raw_ids = await self.client.zrangebyscore(
+			self._ttl_index_key,
+			min = "-inf",
+			max = now_ts,
+			start = 0,
+			num = limit,
+		)
+		return [int(v) for v in raw_ids]
 
 	# --- Auth (OTP) ---
 	async def set_otp(self, mail: str, otp_code: str, ex: int = settings.OTP_EXPIRATION_SECONDS):

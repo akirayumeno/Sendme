@@ -1,4 +1,4 @@
-import {Check, Copy, Download, ExternalLink, File, Monitor, Smartphone, X} from "lucide-react";
+import {Check, Copy, Download, ExternalLink, File, Monitor, Smartphone, Trash2, X} from "lucide-react";
 import type {Message, ThemeConfig} from "../../types/type.tsx";
 import React, {useCallback, useRef, useState} from "react";
 import axios from "axios";
@@ -6,12 +6,14 @@ import axios from "axios";
 interface MessageItemProps {
     message: Message,
     onCopy: (id: string, content: string) => void,
-    themeConfig: ThemeConfig
+    onDelete: (id: string) => void,
+    themeConfig: ThemeConfig,
+    onMediaLoad?: () => void,
 }
 
 const API_BASE_URL = 'http://localhost:8000/api/v1/messages';
 
-const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, themeConfig}) => {
+const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, onDelete, themeConfig, onMediaLoad}) => {
     const [isCopied, setIsCopied] = useState(false);
     const timeoutRef = useRef<number | null>(null);
 
@@ -142,6 +144,7 @@ const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, themeConfig})
                                     alt={message.fileName}
                                     className="max-w-full h-auto rounded-lg shadow-sm border cursor-pointer hover:shadow-md transition-shadow"
                                     loading="lazy"
+                                    onLoad={onMediaLoad}
                                     onClick={handleViewOriginal}
                                 />
                             </div>
@@ -232,6 +235,19 @@ const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, themeConfig})
                     </div>
 
                     <div className="flex items-center justify-end space-x-2 flex-1">
+                        {message.status === 'success' && (
+                            <button
+                                onClick={() => onDelete(message.id)}
+                                className={`opacity-0 group-hover:opacity-100 p-1 rounded transition ${
+                                    themeConfig.cardClasses === 'bg-gray-800 border-gray-700 text-gray-300'
+                                        ? 'hover:bg-gray-700 text-gray-300'
+                                        : 'hover:bg-gray-100 text-gray-600'
+                                }`}
+                                aria-label="Delete message"
+                            >
+                                <Trash2 className="w-4 h-4"/>
+                            </button>
+                        )}
                         {message.device === 'phone' ? (
                             <Smartphone className="w-4 h-4"/>
                         ) : (
@@ -246,22 +262,37 @@ const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, themeConfig})
                     </div>
 
                     {message.type === 'text' && message.status === 'success' && (
-                        <button
-                            onClick={copyText}
-                            className={`absolute top-2 right-2 p-1.5 w-8 h-8 flex items-center justify-center rounded-lg
+                        <div className="absolute top-2 right-2 group/copy">
+                            <button
+                                onClick={copyText}
+                                className={`p-1.5 w-8 h-8 flex items-center justify-center rounded-lg
                                        opacity-0 group-hover:opacity-100 focus:outline-none ${
-                                themeConfig.cardClasses === 'bg-gray-800 border-gray-700 text-gray-300'
-                                    ? 'bg-gray-800 hover:bg-black text-gray-300'
-                                    : 'bg-white hover:bg-gray-200 text-gray-600'
-                            }`}
-                            aria-label="Copy message content"
-                        >
-                            {isCopied ? (
-                                <Check className="w-4 h-4 text-green-500 focus:outline-none"/>
-                            ) : (
-                                <Copy className="w-4 h-4 "/>
+                                    themeConfig.cardClasses === 'bg-gray-800 border-gray-700 text-gray-300'
+                                        ? 'bg-gray-800 hover:bg-black text-gray-300'
+                                        : 'bg-white hover:bg-gray-200 text-gray-600'
+                                }`}
+                                aria-label="Copy message content"
+                            >
+                                {isCopied ? (
+                                    <Check className="w-4 h-4 text-green-500 focus:outline-none"/>
+                                ) : (
+                                    <Copy className="w-4 h-4 "/>
+                                )}
+                            </button>
+                            {!isCopied && (
+                                <span className="absolute -top-8 right-0 px-2 py-1 text-xs rounded-md
+                                                 opacity-0 pointer-events-none
+                                                 transition-opacity duration-150 group-hover/copy:opacity-100">
+                                    <span className={
+                                        themeConfig.cardClasses === 'bg-gray-800 border-gray-700 text-gray-300'
+                                            ? 'bg-black text-white px-2 py-1 rounded-md'
+                                            : 'bg-gray-100 text-gray-800 border border-gray-200 px-2 py-1 rounded-md'
+                                    }>
+                                    Copy
+                                    </span>
+                                </span>
                             )}
-                        </button>
+                        </div>
                     )}
                 </div>
             </div>

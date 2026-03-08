@@ -16,11 +16,12 @@ class TestMessageService:
 		message_repo = AsyncMock()
 		user_repo = AsyncMock()
 		file_service = AsyncMock()
-		service = MessageService(message_repo, user_repo, file_service)
-		return service, message_repo, user_repo, file_service
+		redis_repo = AsyncMock()
+		service = MessageService(message_repo, user_repo, file_service, redis_repo)
+		return service, message_repo, user_repo, file_service, redis_repo
 
 	async def test_create_text_message_success(self, mock_repos):
-		service, message_repo, _, _ = mock_repos
+		service, message_repo, _, _, redis_repo = mock_repos
 
 		# Setup Mocks
 		schema = TextMessageCreate(
@@ -33,11 +34,12 @@ class TestMessageService:
 		message_repo.create_message.assert_called_once()
 		args = message_repo.create_message.call_args[0][0]
 		assert args["status"] == MessageStatus.sent
-		assert args["file_size_bytes"] == 0
+		assert args["file_size"] == 0
 		assert args["content"] == "Hello World"
+		redis_repo.set_message_ttl.assert_awaited_once()
 
 	async def test_get_history_pagination(self, mock_repos):
-		service, message_repo, _, _ = mock_repos
+		service, message_repo, _, _, _ = mock_repos
 
 		# test page
 		await service.get_history(user_id = 1, page = 2, page_size = 10)
@@ -46,7 +48,7 @@ class TestMessageService:
 		message_repo.get_by_user.assert_called_once_with(1, 10, 10)
 
 	async def test_delete_text_message_success(self, mock_repos):
-		service, message_repo, _, _ = mock_repos
+		service, message_repo, _, _, redis_repo = mock_repos
 
 		mock_msg = MagicMock()
 		mock_msg.user_id = 1
@@ -57,9 +59,10 @@ class TestMessageService:
 
 		assert result is True
 		message_repo.delete_message.assert_called_once_with(100)
+		redis_repo.delete_timer.assert_awaited_once_with(100)
 
 	async def test_delete_file_message_success(self, mock_repos):
-		service, message_repo, _, file_service = mock_repos
+		service, message_repo, _, file_service, _ = mock_repos
 
 		mock_msg = MagicMock()
 		mock_msg.user_id = 1
@@ -71,7 +74,7 @@ class TestMessageService:
 		file_service.delete_existing_file.assert_called_once_with(200, 1)
 
 	async def test_delete_message_permission_denied(self, mock_repos):
-		service, message_repo, _, _ = mock_repos
+		service, message_repo, _, _, _ = mock_repos
 
 		# 1. mock the message from user A (id=999)
 		mock_msg = MagicMock()
