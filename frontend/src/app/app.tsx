@@ -24,6 +24,10 @@ const SendMeResponsive = () => {
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const uploadingIdsRef = useRef<Set<string>>(new Set());
+    const wsRef = useRef<WebSocket | null>(null);
+    const wsReconnectRef = useRef<number | null>(null);
+    const wsFetchDebounceRef = useRef<number | null>(null);
+    const pollingRef = useRef<number | null>(null);
     const scrollToBottom = (behavior: ScrollBehavior = 'auto') => {
         messagesEndRef.current?.scrollIntoView({behavior, block: 'end'});
     };
@@ -122,6 +126,59 @@ const SendMeResponsive = () => {
         }
     };
 
+    const stopPolling = () => {
+        if (pollingRef.current) {
+            window.clearInterval(pollingRef.current);
+            pollingRef.current = null;
+        }
+    };
+
+    const startPolling = () => {
+        if (pollingRef.current) return;
+        pollingRef.current = window.setInterval(() => {
+            fetchMessages();
+        }, 3000);
+    };
+
+    const scheduleFetchMessages = () => {
+        if (wsFetchDebounceRef.current) {
+            window.clearTimeout(wsFetchDebounceRef.current);
+        }
+        wsFetchDebounceRef.current = window.setTimeout(() => {
+            fetchMessages();
+        }, 120);
+    };
+
+    const connectWebSocket = () => {
+        const token = localStorage.getItem('authToken');
+        if (!token) return;
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
+
+        const wsUrl = `ws://localhost:8000/api/v1/ws/messages?token=${encodeURIComponent(token)}`;
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+            stopPolling();
+        };
+
+        ws.onmessage = () => {
+            scheduleFetchMessages();
+        };
+
+        ws.onclose = () => {
+            if (!isLoggedIn) return;
+            startPolling();
+            wsReconnectRef.current = window.setTimeout(() => {
+                connectWebSocket();
+            }, 2000);
+        };
+
+        ws.onerror = () => {
+            ws.close();
+        };
+    };
+
     useEffect(() => {
         const token = localStorage.getItem('authToken');
         if (token) {
@@ -138,7 +195,42 @@ const SendMeResponsive = () => {
         return () => window.clearTimeout(timer);
     }, [messages]);
 
+    useEffect(() => {
+        if (!isLoggedIn) {
+            stopPolling();
+            if (wsRef.current) {
+                wsRef.current.close();
+                wsRef.current = null;
+            }
+            return;
+        }
+
+        connectWebSocket();
+
+        return () => {
+            stopPolling();
+            if (wsReconnectRef.current) {
+                window.clearTimeout(wsReconnectRef.current);
+            }
+            if (wsFetchDebounceRef.current) {
+                window.clearTimeout(wsFetchDebounceRef.current);
+            }
+            if (wsRef.current) {
+                wsRef.current.close();
+                wsRef.current = null;
+            }
+        };
+    }, [isLoggedIn]);
+
     const handleLogout = () => {
+        stopPolling();
+        if (wsReconnectRef.current) {
+            window.clearTimeout(wsReconnectRef.current);
+        }
+        if (wsRef.current) {
+            wsRef.current.close();
+            wsRef.current = null;
+        }
         localStorage.removeItem('authToken');
         setIsLoggedIn(false);
         setMessages([]);

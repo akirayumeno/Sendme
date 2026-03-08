@@ -8,6 +8,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.api.auth import router as auth_router
 from app.api.router import router as message_router
+from app.api.ws import router as ws_router
 from app.core.database import Base, SessionLocal, engine
 from app.core.exception_handlers import register_exception_handlers
 from app.core.settings import settings
@@ -73,6 +74,7 @@ register_exception_handlers(app)
 
 app.include_router(auth_router, prefix = "/api/v1")
 app.include_router(message_router, prefix = "/api/v1")
+app.include_router(ws_router, prefix = "/api/v1")
 
 app.add_middleware(
 	CORSMiddleware,

@@ -73,15 +73,22 @@ def get_message_service(
 
 async def get_current_user_id(token: str = Depends(oauth2_scheme)) -> int:
 	try:
-		payload = jwt.decode(token, settings.SECRET_KEY, algorithms = [settings.ALGORITHM])
-		if payload.get("type") != "access":
-			raise CREDENTIALS_EXCEPTION
-		user_id = payload.get("sub")
-		if user_id is None:
-			raise CREDENTIALS_EXCEPTION
-		return int(user_id)
+		return get_user_id_from_token(token)
 	except (JWTError, ValueError, TypeError):
 		raise CREDENTIALS_EXCEPTION
+
+
+def get_user_id_from_token(token: str) -> int:
+	try:
+		payload = jwt.decode(token, settings.SECRET_KEY, algorithms = [settings.ALGORITHM])
+		if payload.get("type") != "access":
+			raise ValueError("Invalid token type")
+		user_id = payload.get("sub")
+		if user_id is None:
+			raise ValueError("Missing user id")
+		return int(user_id)
+	except (JWTError, ValueError, TypeError):
+		raise ValueError("Invalid access token")
 
 
 async def get_current_user(

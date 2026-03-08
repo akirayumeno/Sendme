@@ -8,6 +8,7 @@ from starlette import status
 
 from app.core.dependencies import get_current_user_id, get_file_repo, get_file_service, get_message_service
 from app.core.enums import DeviceType, MessageType
+from app.realtime.ws_manager import ws_manager
 from app.schemas.schemas import FileMessageCreate, MessageResponse, TextMessageCreate, TextMessageRequest
 from app.services.exceptions import (
 	FilePathNotFoundError,
@@ -20,6 +21,12 @@ from app.services.message_service import MessageService
 from app.storage.file_repo import FileRepo
 
 router = APIRouter(prefix = "/messages", tags = ["messages"])
+
+
+def _extract_message_id(message) -> int | str | None:
+	if isinstance(message, dict):
+		return message.get("id")
+	return getattr(message, "id", None)
 
 
 def _resolve_file_path(file_repo: FileRepo, relative_path: str) -> Path:
@@ -50,7 +57,13 @@ async def send_text(
 		type = MessageType.text,
 		device = payload.device,
 	)
-	return await service.create_text_message(schema)
+	message = await service.create_text_message(schema)
+	message_id = _extract_message_id(message)
+	await ws_manager.broadcast_to_user(
+		user_id,
+		{"event":"message.updated", "message_id":message_id},
+	)
+	return message
 
 
 @router.get("/history", response_model = list[MessageResponse])
@@ -90,11 +103,17 @@ async def upload_file(
 	)
 
 	try:
-		return await service.finalize_file_message(
+		message = await service.finalize_file_message(
 			schema = schema,
 			temp_filename = upload_info["temp_filename"],
 			file_size = upload_info["size_bytes"],
 		)
+		message_id = _extract_message_id(message)
+		await ws_manager.broadcast_to_user(
+			user_id,
+			{"event":"message.updated", "message_id":message_id},
+		)
+		return message
 	except QuotaExceededError as exc:
 		raise HTTPException(status_code = status.HTTP_403_FORBIDDEN, detail = str(exc)) from exc
 	except (FileUploadAbortedError, FilePathNotFoundError, MessagePermissionError) as exc:
@@ -144,4 +163,8 @@ async def delete_message(
 		service: MessageService = Depends(get_message_service),
 ):
 	await service.delete_message(message_id = message_id, user_id = user_id)
+	await ws_manager.broadcast_to_user(
+		user_id,
+		{"event":"message.deleted", "message_id":message_id},
+	)
 	return {"status":"success", "message":"Message deleted"}
