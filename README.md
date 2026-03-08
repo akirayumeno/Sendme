@@ -52,6 +52,8 @@ between mobile and desktop environments.
 ├── tests/                      # Pytest suite for backend
 ├── docker-compose.yml          # Local & Production orchestration
 └── Dockerfile                  # Multi-stage build for Backend
+```
+
 ## 1. Architecture
 
 - `frontend/`: React UI (`http://localhost:3000` or Vite port)
