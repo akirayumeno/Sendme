@@ -1,6 +1,7 @@
 from pathlib import Path
 from datetime import datetime, timezone
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -76,6 +77,9 @@ class FakeFileService:
 
 	async def get_file_path_for_user(self, message_id: int, user_id: int):
 		return "1/demo.txt"
+
+	async def get_file_for_user(self, message_id: int, user_id: int):
+		return SimpleNamespace(type = "image", file_path = "1/demo.txt", user_id = user_id)
 
 
 def test_message_api_flow_end_to_end():

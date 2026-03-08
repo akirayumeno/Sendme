@@ -90,7 +90,7 @@ async def test_create_message_success(db_session):
 			"type": MessageType.text,
 			"content": "Hello World",
 			"status": MessageStatus.sent,
-			"file_size_bytes": 0,
+			"file_size": 0,
 		}
 	)
 	assert msg.id is not None
@@ -109,7 +109,7 @@ async def test_hard_delete_logic(db_session):
 		{
 			"user_id": 1,
 			"type": MessageType.file,
-			"file_size_bytes": 5 * 1024 * 1024,
+			"file_size": 5 * 1024 * 1024,
 			"is_deleted": False,
 		}
 	)

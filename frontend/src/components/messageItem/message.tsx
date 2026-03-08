@@ -240,8 +240,8 @@ const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, onDelete, the
                                 onClick={() => onDelete(message.id)}
                                 className={`opacity-0 group-hover:opacity-100 p-1 rounded transition ${
                                     themeConfig.cardClasses === 'bg-gray-800 border-gray-700 text-gray-300'
-                                        ? 'hover:bg-gray-700 text-gray-300'
-                                        : 'hover:bg-gray-100 text-gray-600'
+                                        ? 'bg-gray-800 hover:bg-gray-700 text-gray-300'
+                                        : 'bg-white hover:bg-gray-100 text-gray-600'
                                 }`}
                                 aria-label="Delete message"
                             >
