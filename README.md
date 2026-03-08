@@ -137,3 +137,27 @@ npm run build
   - backend may actually be `500`; inspect backend logs first.
 - OTP send returns `503`:
   - verify SMTP config and provider limits.
+
+## 10. CI/CD (GitHub Actions)
+
+### CI
+- Workflow file: `.github/workflows/ci.yml`
+- Trigger: push/pull request to `main` or `master`
+- Jobs:
+  - Backend tests: install Python dependencies and run `pytest -q`
+  - Frontend build: run `npm ci` + `npm run build`
+
+### CD
+- Workflow file: `.github/workflows/cd.yml`
+- Trigger: push to `main`/`master` (or manual dispatch)
+- Jobs:
+  - Build and push backend Docker image to GHCR:
+    - `ghcr.io/<owner>/<repo>/backend`
+    - tags include branch, commit SHA, and `latest` on default branch
+  - Optional deploy webhook:
+    - If `DEPLOY_WEBHOOK_URL` secret is configured, CD triggers it after image publish.
+
+Required repository settings:
+- Actions permissions: allow `GITHUB_TOKEN` to write packages (for GHCR push)
+- Optional secret:
+  - `DEPLOY_WEBHOOK_URL` (for Render/Railway/Fly/other webhook-based deployment)

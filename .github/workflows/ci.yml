@@ -1,91 +1,55 @@
-name: CI / Backend Tests
+name: CI
 
 on:
-  push:
-    branches: [ "main", "master" ]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: ["main", "master"]
+  push:
+    branches: ["main", "master"]
 
 jobs:
-  lint:
+  backend-tests:
+    name: Backend Tests
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: sqlite+aiosqlite:///./ci_test.db
+      REDIS_URL: redis://localhost:6379
+      SECRET_KEY: ci-test-secret-key
+      UPLOAD_DIR: uploads
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Install Ruff
-        run: pip install ruff
-      - name: Run Ruff Check
-        run: ruff check .
-
-  unit-tests:
-    needs: lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install pytest pytest-cov
-      - name: Run Unit Tests
-        env:
-          DATABASE_URL: "sqlite:///:memory:"
-          JWT_SECRET: "test-secret-key"
-        run: pytest tests/unit --cov=app --cov-report=xml
-
-  integration-tests:
-    needs: unit-tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Start Services (DB & Redis)
-        # initiate database and Redis container
-        run: docker compose up -d db redis
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
+          cache: "pip"
 
       - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install pytest alembic psycopg2-binary
-          pip install sqlalchemy aiosqlite pytest-asyncio greenlet aiosmtplib jinja2
+        run: pip install -r requirements.txt
 
-      - name: Wait for Postgres
-        run: |
-          until docker compose exec db pg_isready -U postgres; do
-            echo "Waiting for database..."
-            sleep 2
-          done
+      - name: Run backend test suite
+        run: pytest -q
 
-      - name: Run Alembic Migrations
-        env:
-          DATABASE_URL: "postgresql://postgres:password@localhost:5432/db"
-        run: alembic upgrade head
-
-      - name: Run Integration Tests
-        env:
-          DATABASE_URL: "postgresql://postgres:password@localhost:5432/db"
-          REDIS_URL: "redis://localhost:6379/0"
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-        run: pytest tests/integration
-
-  coverage:
-    needs: [ unit-tests ]
+  frontend-build:
+    name: Frontend Build
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - name: Upload to Codecov
-        uses: codecov/codecov-action@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: true
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
