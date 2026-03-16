@@ -1,36 +1,42 @@
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import patch, MagicMock
 
 import pytest
 
+from app.services.exceptions import EmailDeliveryError
 from app.services.notification_service import NotificationService
 
 
 @pytest.fixture
 def notification_service():
-	"""Fixture to initialize the notification service instance for testing."""
+	"""
+	Fixture to initialize the notification service instance for testing.
+	"""
 	return NotificationService()
 
 
 @pytest.mark.asyncio
-async def test_send_verification_mail_logic(notification_service):
+async def test_send_verification_mail_resend_logic(notification_service):
 	"""
-	Test that send_verification_mail correctly renders the template
-	and passes the right arguments to the SMTP 'send' function.
+	Test that send_verification_mail correctly renders the Jinja2 template
+	and passes the expected payload to the Resend API SDK.
 	"""
 	# 1. Define test data
 	test_recipient = "user@example.com"
 	test_username = "test_user"
 	test_code = "123456"
 
-	# 2. Patch 'send' from aiosmtplib.
-	# We use AsyncMock because 'send' is a coroutine (async function).
-	with patch("app.services.notification_service.send", new_callable = AsyncMock) as mock_send:
-		# 3. Patch the Jinja2 template loader ('load') to avoid reading real files from disk.
+	# 2. Patch the Resend SDK's send method.
+	# Since we use asyncio.to_thread in the service, we mock the underlying synchronous call.
+	with patch("resend.Emails.send") as mock_resend_send:
+		# 3. Patch the Jinja2 template loader ('load') to avoid I/O operations during unit tests.
 		with patch("app.services.notification_service.load.get_template") as mock_get_template:
 			# Create a mock template and define its render behavior
 			mock_template = MagicMock()
 			mock_template.render.return_value = "<html>Mocked Email Body</html>"
 			mock_get_template.return_value = mock_template
+
+			# Simulate a successful API response
+			mock_resend_send.return_value = {"id":"test_email_id"}
 
 			# --- Execute the method under test ---
 			await notification_service.send_verification_mail(
@@ -41,22 +47,35 @@ async def test_send_verification_mail_logic(notification_service):
 
 			# --- Verification / Assertions ---
 
-			# Ensure the SMTP send function was called exactly once
-			mock_send.assert_called_once()
+			# Ensure the Resend API was called exactly once
+			mock_resend_send.assert_called_once()
 
-			# Inspect the first positional argument passed to 'send' (the EmailMessage object)
-			# call_args[0][0] retrieves the first argument of the first call
-			sent_message = mock_send.call_args[0][0]
+			# Retrieve the arguments passed to the mock to verify the payload structure
+			# resend.Emails.send expects a dictionary of type SendParams
+			called_params = mock_resend_send.call_args[0][0]
 
-			# Use standard assertions to avoid 'Unresolved reference' errors
-			assert sent_message["To"] == test_recipient
-			assert sent_message["Subject"] == "Your Verification Code"
-			assert "Sendme Support" in sent_message["From"]
+			# Verify that the recipient is passed as a list (Resend requirement)
+			assert called_params["to"] == [test_recipient]
+			assert called_params["subject"] == "Your Verification Code"
+			assert "<html>Mocked Email Body</html>" in called_params["html"]
 
-			# Inspect the keyword arguments (SMTP configuration)
-			# call_args[1] retrieves a dictionary of the keyword arguments passed to 'send'
-			kwargs = mock_send.call_args[1]
-			assert kwargs["hostname"] == notification_service.smtp_server
-			assert kwargs["port"] == notification_service.smtp_port
-			assert kwargs["username"] == notification_service.email
-			assert kwargs["password"] == notification_service.code
+			# Ensure the 'from' field contains the verified domain or service name
+			assert "onboarding@send-me.dev" in called_params["from"] or "SendMe" in called_params["from"]
+
+
+@pytest.mark.asyncio
+async def test_send_verification_mail_api_failure(notification_service):
+	"""
+	Test that the service correctly raises a custom EmailDeliveryError
+	when the Resend API call fails.
+	"""
+	# Simulate an unexpected exception from the Resend SDK
+	with patch("resend.Emails.send", side_effect = Exception("API Connection Timeout")):
+		with patch("app.services.notification_service.load.get_template"):
+			with pytest.raises(EmailDeliveryError) as exc_info:
+				await notification_service.send_verification_mail(
+					"fail@test.com", "user", "000000"
+				)
+
+			# Verify the custom error message is passed through
+			assert "Failed to deliver verification email" in str(exc_info.value)
