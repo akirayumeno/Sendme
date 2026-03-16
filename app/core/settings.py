@@ -12,9 +12,9 @@ class Settings(BaseSettings):
 	UPLOAD_DIR: str = Field(default = "uploads", description = "Local upload directory")
 
 	# --- SMTP ---
-	RESEND_API_KEY: str = "re_your_default_key_for_test"  # 或者不给默认值，强制要求环境变量
+	RESEND_API_KEY: str = "re_your_default_key_for_test"
 	RESEND_FROM_EMAIL: str = "onboarding@send-me.dev"
-	
+
 	# --- JWT ---
 	SECRET_KEY: str = Field(
 		default = "dangerous-default-key-replace-me-in-env",

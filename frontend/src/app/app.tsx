@@ -9,7 +9,7 @@ import Login from "../components/auth/login.tsx";
 import Register from "../components/auth/register.tsx";
 import type {Message} from "../types/type.tsx";
 
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
 const SendMeResponsive = () => {
     const themeConfig = useTheme();
@@ -95,7 +95,7 @@ const SendMeResponsive = () => {
     };
 
     // Pull history from backend and merge with local pending messages.
-    const fetchMessages = async ({silent = false}: {silent?: boolean} = {}) => {
+    const fetchMessages = async ({silent = false}: { silent?: boolean } = {}) => {
         if (!silent) setIsLoading(true);
         try {
             const token = localStorage.getItem('authToken');
@@ -175,7 +175,8 @@ const SendMeResponsive = () => {
         if (!token) return;
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
 
-        const wsUrl = `ws://localhost:8000/api/v1/ws/messages?token=${encodeURIComponent(token)}`;
+        const wsBase = (import.meta as any).env?.VITE_WS_BASE_URL || API_BASE_URL.replace(/^http/, 'ws');
+        const wsUrl = `${wsBase.replace(/\/api\/v1$/, '')}/api/v1/ws/messages?token=${encodeURIComponent(token)}`;
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 
@@ -324,7 +325,7 @@ const SendMeResponsive = () => {
         } catch (err) {
             const message = axios.isAxiosError(err) && err.response?.data?.detail
                 ? err.response.data.detail
-                : 'Failed to send OTP.';
+                : 'Failed to send mail.';
             setAuthError(message);
             throw err;
         } finally {
