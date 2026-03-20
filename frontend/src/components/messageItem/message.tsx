@@ -11,7 +11,8 @@ interface MessageItemProps {
     onMediaLoad?: () => void,
 }
 
-const API_BASE_URL = ((import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8000/api/v1') + '/messages';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = `${API_BASE.replace(/\/$/, '')}/messages`;
 
 const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, onDelete, themeConfig, onMediaLoad}) => {
     const [isCopied, setIsCopied] = useState(false);
@@ -130,7 +131,8 @@ const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, onDelete, the
                     {message.status === 'uploading' ? (
                         <div className="flex items-center justify-center p-8 bg-gray-100 dark:bg-gray-700 rounded-lg">
                             <div className="text-center">
-                                <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                                <div
+                                    className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
                                 <p className={`text-sm ${themeConfig.cardClasses}`}>
                                     Uploading... {message.progress}%
                                 </p>
@@ -226,7 +228,8 @@ const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, onDelete, the
 
     return (
         <div className="group">
-            <div className={`${themeConfig.cardClasses} border rounded-xl p-4 transition-all duration-200 hover:shadow-lg`}>
+            <div
+                className={`${themeConfig.cardClasses} border rounded-xl p-4 transition-all duration-200 hover:shadow-lg`}>
                 <div className="flex items-center justify-between mb-3 text-sm opacity-80 w-full">
                     <div className="flex-1"></div>
 
