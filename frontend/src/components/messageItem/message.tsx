@@ -11,8 +11,7 @@ interface MessageItemProps {
     onMediaLoad?: () => void,
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
-const API_BASE_URL = `${API_BASE.replace(/\/$/, '')}/messages`;
+const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
 const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, onDelete, themeConfig, onMediaLoad}) => {
     const [isCopied, setIsCopied] = useState(false);
