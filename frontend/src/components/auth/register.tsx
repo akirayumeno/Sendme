@@ -275,7 +275,7 @@ const Register: React.FC<RegisterProps> = ({
                         <button
                             type="button"
                             onClick={onSwitchToLogin}
-                            className="font-medium text-blue-500 hover:text-blue-400 ml-3 transition-colors"
+                            className="font-medium text-blue-500 hover:text-blue-400 ml-3 transition-colors bg-transparent border-0 p-0 shadow-none"
                             disabled={isLoading}
                         >
                             Go to Login
