@@ -1,5 +1,6 @@
 import {useEffect, useLayoutEffect, useRef, useState} from 'react';
 import axios from 'axios';
+import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from '@vercel/speed-insights/react';
 
 import {useTheme} from "../components/themes/theme.tsx";
@@ -628,6 +629,7 @@ const SendMeResponsive = () => {
                     themeConfig={themeConfig}
                 />
             </div>
+            <Analytics />
             <SpeedInsights />
         </div>
     );
