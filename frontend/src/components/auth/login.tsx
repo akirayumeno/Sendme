@@ -121,7 +121,7 @@ const Login: React.FC<LoginProps> = ({themeConfig, onLoginAttempt, onSwitchToReg
                         <button
                             type="button"
                             onClick={onSwitchToRegister}
-                            className="font-medium text-blue-500 hover:text-blue-400 ml-3 transition-colors"
+                            className="font-medium text-blue-500 hover:text-blue-400 ml-3 transition-colors bg-transparent border-0 p-0 shadow-none"
                             disabled={isLoading}
                         >
                             Sign Up Now

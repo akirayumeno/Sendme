@@ -10,7 +10,10 @@ import Login from "../components/auth/login.tsx";
 import Register from "../components/auth/register.tsx";
 import type {Message} from "../types/type.tsx";
 
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+const RAW_API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = RAW_API_BASE_URL.replace(/\/+$/, '').endsWith('/api/v1')
+    ? RAW_API_BASE_URL.replace(/\/+$/, '')
+    : `${RAW_API_BASE_URL.replace(/\/+$/, '')}/api/v1`;
 
 const SendMeResponsive = () => {
     const themeConfig = useTheme();
@@ -81,6 +84,23 @@ const SendMeResponsive = () => {
         return 'error';
     };
 
+    const getErrorMessage = (err: unknown, fallback: string) => {
+        if (!axios.isAxiosError(err)) return fallback;
+        const detail = err.response?.data?.detail;
+        if (!detail) return fallback;
+        if (typeof detail === 'string') return detail;
+        if (Array.isArray(detail)) {
+            return detail
+                .map((item: any) => {
+                    const loc = Array.isArray(item?.loc) ? item.loc.join('.') : 'field';
+                    const msg = item?.msg || 'invalid';
+                    return `${loc}: ${msg}`;
+                })
+                .join('; ');
+        }
+        return fallback;
+    };
+
     // Fetch protected image blob and convert to object URL for preview rendering.
     const fetchProtectedImageUrl = async (messageId: string): Promise<string | undefined> => {
         try {
@@ -96,7 +116,7 @@ const SendMeResponsive = () => {
     };
 
     // Pull history from backend and merge with local pending messages.
-    const fetchMessages = async ({silent = false}: {silent?: boolean} = {}) => {
+    const fetchMessages = async ({silent = false}: { silent?: boolean } = {}) => {
         if (!silent) setIsLoading(true);
         try {
             const token = localStorage.getItem('authToken');
@@ -176,7 +196,9 @@ const SendMeResponsive = () => {
         if (!token) return;
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
 
-        const wsUrl = `ws://localhost:8000/api/v1/ws/messages?token=${encodeURIComponent(token)}`;
+        const wsBase = (import.meta as any).env?.VITE_WS_BASE_URL || API_BASE_URL.replace(/^http/, 'ws');
+        const wsRoot = wsBase.replace(/\/api\/v1$/, '').replace(/\/+$/, '');
+        const wsUrl = `${wsRoot}/api/v1/ws/messages?token=${encodeURIComponent(token)}`;
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 
@@ -303,9 +325,7 @@ const SendMeResponsive = () => {
             setIsRegisterView(false);
             await fetchMessages();
         } catch (err) {
-            const message = axios.isAxiosError(err) && err.response?.data?.detail
-                ? err.response.data.detail
-                : 'Login failed. Please check your username and password.';
+            const message = getErrorMessage(err, 'Login failed. Please check your username and password.');
             setAuthError(message);
         } finally {
             setAuthLoading(false);
@@ -323,9 +343,7 @@ const SendMeResponsive = () => {
                 password,
             });
         } catch (err) {
-            const message = axios.isAxiosError(err) && err.response?.data?.detail
-                ? err.response.data.detail
-                : 'Failed to send OTP.';
+            const message = getErrorMessage(err, 'Failed to send mail.');
             setAuthError(message);
             throw err;
         } finally {
@@ -345,9 +363,7 @@ const SendMeResponsive = () => {
             });
             setIsRegisterView(false);
         } catch (err) {
-            const message = axios.isAxiosError(err) && err.response?.data?.detail
-                ? err.response.data.detail
-                : 'Register failed. Please check email/otp.';
+            const message = getErrorMessage(err, 'Register failed. Please check email/otp.');
             setAuthError(message);
             throw err;
         } finally {

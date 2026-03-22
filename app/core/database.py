@@ -11,7 +11,15 @@ def _normalize_database_url(raw_url: str) -> str:
 
 
 DATABASE_URL = _normalize_database_url(settings.DATABASE_URL)
-engine = create_async_engine(DATABASE_URL, pool_pre_ping = True)
+# Render/pgbouncer in transaction/statement mode can't handle prepared statements.
+engine = create_async_engine(
+	DATABASE_URL,
+	pool_pre_ping = True,
+	connect_args = {
+		"prepared_statement_cache_size":0,
+		"statement_cache_size":0
+	}
+)
 SessionLocal = async_sessionmaker(bind = engine, class_ = AsyncSession, expire_on_commit = False)
 
 Base = declarative_base()

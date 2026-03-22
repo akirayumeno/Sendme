@@ -1,35 +1,41 @@
 # SendMe
 
-SendMe is a high-performance, cross-device file and message transfer application designed for seamless synchronization
-between mobile and desktop environments.
+SendMe is a cross-device file and message transfer app that keeps your phone and desktop in sync. It focuses on quick
+handoff: send a text or file on one device and see it on the other instantly.
 
-## Technical Highlights
+## Screenshots
 
-- Reliable Real-time Sync: Implemented WebSocket with an intelligent 3-second polling fallback mechanism, ensuring
-  message delivery even in unstable network conditions.
+Place images in `docs/images/` and update paths below.
 
-- Automated Lifecycle Management: Engineered an automated TTL (Time-To-Live) cleanup system using Redis indexing, which
-  periodically purges expired messages and associated binary files to optimize storage.
+![Auth flow (OTP registration)](docs/images/auth-flow.png)
+![Messages view (text + file)](docs/images/messages-view.png)
+![Image preview](docs/images/image-preview.png)
 
-- High-Concurrency File I/O: Developed an asynchronous chunked upload/download pipeline to handle large files with
-  minimal memory footprint on the FastAPI backend.
+## Product Overview
 
-- Security & Auth: Robust authentication system featuring JWT (JSON Web Tokens) with refresh rotation and Email OTP (
-  One-Time Password) registration.
+SendMe solves a simple workflow: move small bits of content across devices without friction. It is optimized for quick
+share, not long-term storage.
 
-- Production-Ready DevOps: Fully containerized with Docker, supported by Alembic for database migrations and GitHub
-  Actions for automated CI/CD and image publishing (GHCR).
+### Core Features
 
-## Tech Stack
+- Cross-device sync: one account across phone and desktop.
+- Text messages: lightweight notes that appear instantly on all devices.
+- File transfer: upload once, download or preview anywhere.
+- Image preview: view images inline without downloading first.
+- Realtime updates: WebSocket push with polling fallback.
+- Automatic cleanup: messages and files expire after TTL to stay within capacity.
 
-| Layer              | Technologies                                                            |
-|:-------------------|:------------------------------------------------------------------------|
-| **Backend**        | **FastAPI** (Python 3.11+), **SQLAlchemy 2.0**, **Pydantic v2**         |
-| **Frontend**       | **React 18**, **TypeScript**, **Vite**, **Tailwind CSS**                |
-| **Infrastructure** | **PostgreSQL** (Relational Data), **Redis** (Cache & TTL), **Docker**   |
-| **DevOps / QA**    | **GitHub Actions**, **Alembic**, **Pytest**, **GHCR (GitHub Packages)** |
+### Ideal Use Cases
 
----
+- Send a link or snippet from phone to desktop.
+- Move a PDF or image between devices quickly.
+- Temporary handoff without cluttering long-term storage.
+
+## Docs
+
+- Product and usage: this README
+- API reference: `docs/API.md`
+- Technical details: `docs/TECHNICAL.md`
 
 ## Project Structure
 
@@ -54,29 +60,14 @@ between mobile and desktop environments.
 └── Dockerfile                  # Multi-stage build for Backend
 ```
 
-## 1. Architecture
+## 1. Quick Start (Docker)
 
-- `frontend/`: React UI (`http://localhost:3000` or Vite port)
-- `app/`: FastAPI backend (`http://localhost:8000`)
-- `db`: PostgreSQL for users/messages
-- `redis`: OTP state + message TTL index
-- `uploads/`: local file storage
-
-Backend layers:
-
-- API layer: `app/api/auth.py`, `app/api/router.py`
-- Service layer: `app/services/*`
-- Repository layer: `app/storage/*`
-- DI wiring: `app/core/dependencies.py`
-
-## 2. Quick Start (Docker)
-
-### 2.1 Prerequisites
+### 1.1 Prerequisites
 
 - Docker Desktop running
 - Node.js 18+ (frontend local dev)
 
-### 2.2 Start backend + infra
+### 1.2 Start backend + infra
 
 ```bash
 docker compose up -d db redis backend
@@ -87,7 +78,7 @@ Backend docs:
 - Swagger UI: `http://0.0.0.0:8000/docs`
 - OpenAPI JSON: `http://0.0.0.0:8000/openapi.json`
 
-### 2.3 Start frontend
+### 1.3 Start frontend
 
 ```bash
 cd frontend
@@ -95,25 +86,26 @@ npm install
 npm run dev -- --port 3000
 ```
 
-## 3. Environment Variables
+## 2. Environment Variables
 
 Main `.env` keys:
 
 - `DATABASE_URL`
 - `REDIS_URL`
 - `SECRET_KEY`
+- `MAX_FILE_SIZE`
 - `UPLOAD_DIR`
-- `SMTP_SERVER`
-- `SMTP_PORT`
-- `SMTP_EMAIL`
-- `SMTP_CODE`
+- `RESEND_API_KEY`
+- `RESEND_FROM_EMAIL`
+- `SECRET_KEY`
+- `UPLOAD_DIR`
 
 Notes:
 
 - Inside Docker backend, DB host should be `db`.
 - On host scripts, DB/Redis host is usually `localhost`.
 
-## 4. Migrations (Alembic)
+## 3. Migrations (Alembic)
 
 ```bash
 alembic revision --autogenerate -m "your message"
@@ -125,7 +117,7 @@ If host migration reports `could not translate host name "db"`:
 - use a host DB URL (e.g. `localhost`) for that command, or
 - run migration inside backend container.
 
-## 5. API Overview
+## 4. API Overview
 
 Base path: `/api/v1`
 
@@ -148,7 +140,7 @@ Messages:
 
 Detailed API doc: `docs/API.md`
 
-## 6. Realtime Sync (WebSocket)
+## 5. Realtime Sync (WebSocket)
 
 WebSocket endpoint:
 
@@ -168,7 +160,7 @@ Fallback strategy:
 - If websocket disconnects, frontend falls back to 3-second polling
 - When websocket reconnects, polling stops
 
-## 7. Recommended End-to-End Flow
+## 6. Recommended End-to-End Flow
 
 1. Request OTP: `POST /auth/request-otp`
 2. Register with OTP: `POST /auth/register-with-otp`
@@ -179,7 +171,7 @@ Fallback strategy:
 7. Pull history: `GET /messages/history`
 8. Download/view/delete by message id
 
-## 8. TTL & Capacity
+## 7. TTL & Capacity
 
 - `MESSAGE_TTL_SECONDS` (default `86400`) controls expiration.
 - New messages are indexed in Redis for TTL cleanup.
@@ -189,7 +181,7 @@ Fallback strategy:
     - Primary: WebSocket event-driven refresh
     - Fallback: polling every 3 seconds when WS disconnects
 
-## 9. Testing
+## 8. Testing
 
 Backend (container):
 
@@ -210,16 +202,16 @@ cd frontend
 npm run build
 ```
 
-## 10. Common Issues
+## 9. Common Issues
 
 - `401 Unauthorized` on `/messages/history` at startup:
     - clear stale `authToken` in localStorage and login again.
 - Browser CORS error after request:
     - backend may actually be `500`; inspect backend logs first.
 - OTP send returns `503`:
-    - verify SMTP config and provider limits.
+    - verify RESEND config and provider limits.
 
-## 11. CI/CD (GitHub Actions)
+## 10. CI/CD (GitHub Actions)
 
 ### CI
 

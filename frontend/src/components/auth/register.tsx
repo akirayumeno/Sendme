@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {ArrowLeft, UserPlus} from 'lucide-react';
 import type {ThemeConfig} from '../../types/type.tsx';
 
@@ -26,6 +26,7 @@ const Register: React.FC<RegisterProps> = ({
     const [otpCode, setOtpCode] = useState<string>('');
     const [localError, setLocalError] = useState<string | null>(null);
     const [step, setStep] = useState<'credentials' | 'verify'>('credentials');
+    const [resendCooldown, setResendCooldown] = useState<number>(0);
 
     const isDark = themeConfig.themeClasses.includes('bg-gray-900');
     const {cardClasses, inputClasses} = themeConfig;
@@ -42,10 +43,29 @@ const Register: React.FC<RegisterProps> = ({
         try {
             await onRequestOtp(email, username, password);
             setStep('verify');
+            setResendCooldown(60);
         } catch {
             setLocalError('Failed to send verification code.');
         }
     };
+
+    const handleResend = async () => {
+        setLocalError(null);
+        try {
+            await onRequestOtp(email, username, password);
+            setResendCooldown(60);
+        } catch {
+            setLocalError('Failed to resend verification code.');
+        }
+    };
+
+    useEffect(() => {
+        if (resendCooldown <= 0) return;
+        const timer = window.setTimeout(() => {
+            setResendCooldown((prev) => Math.max(0, prev - 1));
+        }, 1000);
+        return () => window.clearTimeout(timer);
+    }, [resendCooldown]);
 
     const handleCreateAccount = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -199,6 +219,24 @@ const Register: React.FC<RegisterProps> = ({
                                 Verification code has been sent to: <span className="font-medium">{email}</span>
                             </p>
 
+                            <div className="flex items-center justify-between text-xs">
+                                <span className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    Didn’t receive it?
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={handleResend}
+                                    disabled={isLoading || resendCooldown > 0}
+                                    className={`font-medium ${
+                                        isLoading || resendCooldown > 0
+                                            ? 'text-gray-400 cursor-not-allowed'
+                                            : 'text-blue-500 hover:text-blue-400'
+                                    }`}
+                                >
+                                    {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend code'}
+                                </button>
+                            </div>
+
                             {(error || localError) && (
                                 <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm" role="alert">
                                     {error || localError}
@@ -237,7 +275,7 @@ const Register: React.FC<RegisterProps> = ({
                         <button
                             type="button"
                             onClick={onSwitchToLogin}
-                            className="font-medium text-blue-500 hover:text-blue-400 ml-3 transition-colors"
+                            className="font-medium text-blue-500 hover:text-blue-400 ml-3 transition-colors bg-transparent border-0 p-0 shadow-none"
                             disabled={isLoading}
                         >
                             Go to Login
