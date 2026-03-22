@@ -12,10 +12,8 @@ class Settings(BaseSettings):
 	UPLOAD_DIR: str = Field(default = "uploads", description = "Local upload directory")
 
 	# --- SMTP ---
-	SMTP_SERVER: str = Field(default = "smtp.gmail.com", description = "SMTP server host")
-	SMTP_PORT: int = Field(default = 587, description = "SMTP server port")
-	SMTP_EMAIL: str = Field(default = "your-email@gmail.com", description = "Sender email address")
-	SMTP_CODE: str = Field(default = "", description = "SMTP app password/auth code")
+	RESEND_API_KEY: str = "re_your_default_key_for_test"
+	RESEND_FROM_EMAIL: str = "onboarding@send-me.dev"
 
 	# --- JWT ---
 	SECRET_KEY: str = Field(

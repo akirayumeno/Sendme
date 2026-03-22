@@ -78,7 +78,11 @@ app.include_router(ws_router, prefix = "/api/v1")
 
 app.add_middleware(
 	CORSMiddleware,
-	allow_origins = [],
+	allow_origins = [
+		"http://localhost:3000",  # local React development port
+		"https://send-me.dev",  # frontend domain
+		"https://www.send-me.dev",  # www domain
+	],
 	allow_origin_regex = r"^https?://(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$",
 	allow_credentials = True,
 	allow_methods = ["*"],

@@ -1,7 +1,8 @@
+import asyncio
 import os
-from email.message import EmailMessage
+from typing import cast
 
-from aiosmtplib import send
+import resend
 from jinja2 import Environment, FileSystemLoader
 
 from app.core.settings import settings
@@ -10,40 +11,36 @@ from app.services.exceptions import EmailDeliveryError
 template_dir = os.path.join(os.path.dirname(__file__), "../templates")
 load = Environment(loader = FileSystemLoader(template_dir))
 
+resend.api_key = settings.RESEND_API_KEY
+
 
 class NotificationService:
 	def __init__(self):
-		self.smtp_server = settings.SMTP_SERVER
-		self.smtp_port = settings.SMTP_PORT
-		self.email = settings.SMTP_EMAIL
-		self.code = settings.SMTP_CODE
+		self.from_email = getattr(settings, "RESEND_FROM_EMAIL", "onboarding@send-me.dev")
 
-	async def send_verification_mail(self, recipient: str, username, code: str):
+	async def send_verification_mail(self, recipient: str, username: str, code: str):
 		"""
-		Sends an HTML email with the verification code.
+		Sends an HTML email with the verification code using Resend API.
 		"""
-		template = load.get_template('verification_code.html')
-		html_content = template.render(username = username, code = code)
-
-		message = EmailMessage()
-		message['From'] = f'Sendme Support <{self.email}>'
-		message['To'] = recipient
-		message['Subject'] = 'Your Verification Code'
-
-		message.set_content(html_content, subtype = 'html')
-		# send email
 		try:
-			await send(
-				message,
-				hostname = self.smtp_server,
-				port = self.smtp_port,
-				username = self.email,
-				password = self.code,
-				use_tls = (self.smtp_port == 465),
-				start_tls = (self.smtp_port == 587)
+			template = load.get_template('verification_code.html')
+			html_content = template.render(username = username, code = code)
+
+			params = {
+				"from":f"SendMe <{self.from_email}>",
+				"to":[recipient],
+				"subject":"Your Verification Code",
+				"html":html_content,
+			}
+
+			r = await asyncio.to_thread(
+				resend.Emails.send,
+				cast(resend.Emails.SendParams, params)
 			)
+			return r
 		except Exception as e:
-			raise EmailDeliveryError("Failed to deliver verification email.") from e
+			print(f"Resend Error: {str(e)}")
+			raise EmailDeliveryError(f"Failed to deliver verification email: {str(e)}") from e
 
 
 notification_service = NotificationService()
