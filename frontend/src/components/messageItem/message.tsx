@@ -1,7 +1,6 @@
 import {Check, Copy, Download, ExternalLink, File, Monitor, Smartphone, Trash2, X} from "lucide-react";
 import type {Message, ThemeConfig} from "../../types/type.tsx";
 import React, {useCallback, useRef, useState} from "react";
-import axios from "axios";
 
 interface MessageItemProps {
     message: Message,
@@ -28,11 +27,6 @@ const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, onDelete, the
         ? 'bg-gray-800/70 border-gray-700 text-gray-200'
         : 'bg-white/85 border-gray-200 text-gray-700';
     const uploadSpinnerClass = isDark ? 'border-blue-300 border-t-transparent' : 'border-blue-500 border-t-transparent';
-
-    const getTokenHeader = () => {
-        const token = localStorage.getItem('authToken');
-        return token ? {'Authorization': `Bearer ${token}`} : {};
-    };
 
     const downloadBlob = (blob: Blob, filename: string) => {
         const url = URL.createObjectURL(blob);
@@ -76,17 +70,12 @@ const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, onDelete, the
         }
 
         if (message.id) {
-            try {
-                const response = await axios.get(`${API_BASE_URL}/${message.id}/view`, {
-                    headers: getTokenHeader(),
-                    responseType: 'blob',
-                });
-                const url = URL.createObjectURL(response.data);
-                window.open(url, '_blank');
-                setTimeout(() => URL.revokeObjectURL(url), 60_000);
-            } catch (error) {
-                console.error('View original failed:', error);
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                console.error('View original failed: missing auth token');
+                return;
             }
+            window.open(`${API_BASE_URL}/${message.id}/view?token=${encodeURIComponent(token)}`, '_blank');
         }
     };
 

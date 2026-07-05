@@ -3,7 +3,7 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from starlette import status
 
 from app.core.dependencies import get_current_user_id, get_file_repo, get_file_service, get_message_service, get_user_id_from_token
@@ -39,19 +39,24 @@ def _resolve_file_path(file_repo: FileRepo, relative_path: str) -> Path:
 	return full_path
 
 
+def _resolve_request_user_id(token: str | None, authorization: str | None) -> int:
+	"""Resolve user id from either query token or Authorization header."""
+	auth_token = token
+	if not auth_token and authorization and authorization.lower().startswith("bearer "):
+		auth_token = authorization.split(" ", 1)[1]
+	if not auth_token:
+		raise HTTPException(status_code = 401, detail = "Not authenticated")
+	try:
+		return get_user_id_from_token(auth_token)
+	except ValueError as exc:
+		raise HTTPException(status_code = 401, detail = "Invalid access token") from exc
+
+
 async def _file_response(file_repo: FileRepo, relative_path: str, as_download: bool, download_name: str | None = None):
 	"""Build a file response with optional download filename behavior."""
-	if hasattr(file_repo, "get_file_stream"):
-		r2_object = await file_repo.get_file_stream(relative_path)
-		headers = {}
-		if as_download:
-			filename = download_name or os.path.basename(relative_path)
-			headers["Content-Disposition"] = f'attachment; filename="{filename}"'
-		return StreamingResponse(
-			r2_object["Body"].iter_chunks(chunk_size = 1024 * 1024),
-			media_type = r2_object.get("ContentType") or "application/octet-stream",
-			headers = headers,
-		)
+	if hasattr(file_repo, "get_presigned_url"):
+		url = await file_repo.get_presigned_url(relative_path, as_download = as_download, download_name = download_name)
+		return RedirectResponse(url = url, status_code = 302)
 
 	full_path = _resolve_file_path(file_repo, relative_path)
 	if not full_path.exists():
@@ -146,16 +151,9 @@ async def download_file(
 		service: FileService = Depends(get_file_service),
 ):
 	"""Download file by message id with owner permission check."""
-	auth_token = token
-	if not auth_token and authorization and authorization.lower().startswith("bearer "):
-		auth_token = authorization.split(" ", 1)[1]
-	if not auth_token:
-		raise HTTPException(status_code = 401, detail = "Not authenticated")
+	user_id = _resolve_request_user_id(token = token, authorization = authorization)
 	try:
-		user_id = get_user_id_from_token(auth_token)
 		message = await service.get_file_for_user(message_id = message_id, user_id = user_id)
-	except ValueError as exc:
-		raise HTTPException(status_code = 401, detail = "Invalid access token") from exc
 	except Exception as exc:
 		raise HTTPException(status_code = 404, detail = "File not found") from exc
 
@@ -168,11 +166,13 @@ async def download_file(
 @router.get("/{message_id}/view")
 async def view_file(
 		message_id: int,
-		user_id: int = Depends(get_current_user_id),
+		token: str | None = Query(None),
+		authorization: str | None = Header(None),
 		file_repo: FileRepo = Depends(get_file_repo),
 		service: FileService = Depends(get_file_service),
 ):
 	"""Inline preview endpoint (image messages only)."""
+	user_id = _resolve_request_user_id(token = token, authorization = authorization)
 	try:
 		message = await service.get_file_for_user(message_id = message_id, user_id = user_id)
 	except Exception as exc:

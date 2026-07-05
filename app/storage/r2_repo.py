@@ -113,10 +113,11 @@ class R2FileRepo:
 	async def delete_temp(self, temp_filename: str) -> bool:
 		return await self.delete(temp_filename, is_temp = True)
 
-	async def get_presigned_url(self, file_path: str, as_download: bool) -> str:
+	async def get_presigned_url(self, file_path: str, as_download: bool, download_name: str | None = None) -> str:
 		params = {"Bucket": self.bucket, "Key": file_path}
 		if as_download:
-			params["ResponseContentDisposition"] = f'attachment; filename="{os.path.basename(file_path)}"'
+			filename = download_name or os.path.basename(file_path)
+			params["ResponseContentDisposition"] = f'attachment; filename="{filename}"'
 		return await asyncio.to_thread(
 			self.client.generate_presigned_url,
 			"get_object",

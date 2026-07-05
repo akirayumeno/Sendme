@@ -110,6 +110,6 @@ def test_message_api_flow_end_to_end():
 		assert download.status_code == 200
 		assert download.content == b"demo"
 
-		view = client.get("/api/v1/messages/99/view")
+		view = client.get("/api/v1/messages/99/view", headers={"Authorization":f"Bearer {token}"})
 		assert view.status_code == 200
 		assert view.content == b"demo"

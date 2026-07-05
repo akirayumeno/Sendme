@@ -107,23 +107,20 @@ def test_upload_download_view(monkeypatch):
 		assert download.status_code == 200
 		assert download.content == b"demo"
 
-		view = client.get("/api/v1/messages/2/view")
+		view = client.get("/api/v1/messages/2/view", headers={"Authorization":f"Bearer {token}"})
 		assert view.status_code == 415
 
 
-def test_download_with_r2_storage_proxy(monkeypatch):
+def test_download_with_r2_storage_redirect(monkeypatch):
 	file_service = AsyncMock()
 	message_service = AsyncMock()
 
 	class R2FileRepo:
-		async def get_file_stream(self, file_path: str):
+		async def get_presigned_url(self, file_path: str, as_download: bool, download_name: str | None = None):
 			assert file_path == "1/demo.txt"
-
-			class Body:
-				def iter_chunks(self, chunk_size: int):
-					yield b"demo"
-
-			return {"Body":Body(), "ContentType":"text/plain"}
+			assert as_download is True
+			assert download_name == "demo.txt"
+			return "https://r2.example.com/1/demo.txt?signed=1"
 
 	file_service.get_file_for_user.return_value = type(
 		"FileMessage",
@@ -140,9 +137,7 @@ def test_download_with_r2_storage_proxy(monkeypatch):
 	client = TestClient(app)
 
 	token = security.create_access_token(1)
-	download = client.get(f"/api/v1/messages/2/download?token={token}")
+	download = client.get(f"/api/v1/messages/2/download?token={token}", follow_redirects = False)
 
-	assert download.status_code == 200
-	assert download.content == b"demo"
-	assert download.headers["content-type"] == "text/plain; charset=utf-8"
-	assert download.headers["content-disposition"] == 'attachment; filename="demo.txt"'
+	assert download.status_code == 302
+	assert download.headers["location"] == "https://r2.example.com/1/demo.txt?signed=1"
