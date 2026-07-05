@@ -14,6 +14,7 @@ from app.services.file_service import FileService
 from app.services.message_service import MessageService
 from app.storage.exceptions import UserNotFoundErrorById
 from app.storage.file_repo import FileRepo
+from app.storage.r2_repo import R2FileRepo
 from app.storage.redis_repo import RedisRepo
 from app.storage.sqlalchemy_repo import MessageRepository, RefreshTokenRepository, UserRepository
 
@@ -37,6 +38,14 @@ def get_redis_repo() -> RedisRepo:
 
 
 def get_file_repo() -> FileRepo:
+	if settings.STORAGE_BACKEND.lower() == "r2":
+		return R2FileRepo(
+			upload_dir = Path(settings.UPLOAD_DIR),
+			endpoint = settings.R2_ENDPOINT,
+			bucket = settings.R2_BUCKET,
+			access_key_id = settings.R2_ACCESS_KEY_ID,
+			secret_access_key = settings.R2_SECRET_ACCESS_KEY,
+		)
 	return FileRepo(upload_dir = Path(settings.UPLOAD_DIR))
 
 
