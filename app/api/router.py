@@ -9,7 +9,15 @@ from starlette import status
 from app.core.dependencies import get_current_user_id, get_file_repo, get_file_service, get_message_service, get_user_id_from_token
 from app.core.enums import DeviceType, MessageType
 from app.realtime.ws_manager import ws_manager
-from app.schemas.schemas import FileMessageCreate, MessageResponse, TextMessageCreate, TextMessageRequest
+from app.schemas.schemas import (
+	CompleteDirectUploadRequest,
+	DirectUploadRequest,
+	DirectUploadResponse,
+	FileMessageCreate,
+	MessageResponse,
+	TextMessageCreate,
+	TextMessageRequest,
+)
 from app.services.exceptions import (
 	FilePathNotFoundError,
 	FileUploadAbortedError,
@@ -130,6 +138,59 @@ async def upload_file(
 			temp_filename = upload_info["temp_filename"],
 			file_size = upload_info["size_bytes"],
 		)
+		message_id = _extract_message_id(message)
+		await ws_manager.broadcast_to_user(
+			user_id,
+			{"event":"message.updated", "message_id":message_id},
+		)
+		return message
+	except QuotaExceededError as exc:
+		raise HTTPException(status_code = status.HTTP_403_FORBIDDEN, detail = str(exc)) from exc
+	except (FileUploadAbortedError, FilePathNotFoundError, MessagePermissionError) as exc:
+		raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = str(exc)) from exc
+
+
+@router.post("/upload-url", response_model = DirectUploadResponse)
+async def create_upload_url(
+		payload: DirectUploadRequest,
+		user_id: int = Depends(get_current_user_id),
+		service: FileService = Depends(get_file_service),
+):
+	"""Create a signed R2 URL so the browser can upload directly."""
+	try:
+		return await service.create_direct_upload(
+			user_id = user_id,
+			file_name = payload.file_name,
+			file_size = payload.file_size,
+			file_type = payload.file_type,
+			device = payload.device,
+		)
+	except QuotaExceededError as exc:
+		raise HTTPException(status_code = status.HTTP_403_FORBIDDEN, detail = str(exc)) from exc
+	except FileUploadAbortedError as exc:
+		raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = str(exc)) from exc
+
+
+@router.post("/upload-complete", response_model = MessageResponse)
+async def complete_upload(
+		payload: CompleteDirectUploadRequest,
+		user_id: int = Depends(get_current_user_id),
+		service: FileService = Depends(get_file_service),
+):
+	"""Persist DB metadata after the browser finishes direct R2 upload."""
+	try:
+		schema = FileMessageCreate.model_validate(
+			{
+				"user_id":user_id,
+				"device":payload.device,
+				"type":payload.type,
+				"file_size":payload.file_size,
+				"file_type":payload.file_type,
+				"file_name":payload.file_name,
+				"file_path":payload.file_path,
+			}
+		)
+		message = await service.complete_direct_upload(schema)
 		message_id = _extract_message_id(message)
 		await ws_manager.broadcast_to_user(
 			user_id,

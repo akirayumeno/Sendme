@@ -105,18 +105,11 @@ const SendMeResponsive = () => {
         return fallback;
     };
 
-    // Fetch protected image blob and convert to object URL for preview rendering.
-    const fetchProtectedImageUrl = async (messageId: string): Promise<string | undefined> => {
-        try {
-            const response = await axios.get(`${API_BASE_URL}/messages/${messageId}/view`, {
-                headers: getTokenHeader(),
-                responseType: 'blob',
-            });
-            return URL.createObjectURL(response.data);
-        } catch (error) {
-            console.error(`Error fetching protected image ${messageId}:`, error);
-            return undefined;
-        }
+    // Build a protected image URL that redirects to a short-lived R2 signed URL.
+    const buildProtectedImageUrl = (messageId: string): string | undefined => {
+        const token = localStorage.getItem('authToken');
+        if (!token) return undefined;
+        return `${API_BASE_URL}/messages/${messageId}/view?token=${encodeURIComponent(token)}`;
     };
 
     // Pull history from backend and merge with local pending messages.
@@ -138,7 +131,7 @@ const SendMeResponsive = () => {
                 (a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
             );
 
-            const data: Message[] = await Promise.all(sortedServerMessages.map(async (msg: any) => {
+            const data: Message[] = sortedServerMessages.map((msg: any) => {
                 const mapped: Message = {
                     ...msg,
                     id: String(msg.id),
@@ -147,11 +140,11 @@ const SendMeResponsive = () => {
                 };
 
                 if (mapped.type === 'image' && mapped.status === 'success' && mapped.id) {
-                    mapped.imageUrl = await fetchProtectedImageUrl(mapped.id);
+                    mapped.imageUrl = buildProtectedImageUrl(mapped.id);
                 }
 
                 return mapped;
-            }));
+            });
 
             setMessages(prev => {
                 const pendingLocal = prev.filter(msg =>
@@ -353,14 +346,16 @@ const SendMeResponsive = () => {
             localStorage.setItem('authToken', access_token);
             setIsLoggedIn(true);
             setIsRegisterView(false);
-            await fetchMessages();
-        } catch (err) {
-            const message = getErrorMessage(err, 'Login failed. Please check your username and password.');
-            setAuthError(message);
-        } finally {
             setAuthLoading(false);
-        }
-    };
+            void fetchMessages();
+		} catch (err) {
+			const message = getErrorMessage(err, 'Login failed. Please check your username and password.');
+			setAuthError(message);
+            setAuthLoading(false);
+		} finally {
+			// Loading is cleared inside each branch so successful login can switch screens immediately.
+		}
+	};
 
     // Trigger OTP email for registration step 1.
     const handleRequestOtp = async (email: string, username: string, password: string) => {
@@ -506,24 +501,72 @@ const SendMeResponsive = () => {
         uploadingIdsRef.current.add(message.id);
 
         const tempImageUrl = message.imageUrl;
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('device', message.device);
-
         try {
-            const response = await axios.post(`${API_BASE_URL}/messages/upload`, formData, {
-                onUploadProgress: (progressEvent) => {
-                    const total = progressEvent.total ?? file.size;
-                    const percentCompleted = Math.round((progressEvent.loaded * 100) / total);
-                    setMessages(prev => prev.map(msg =>
-                        msg.id === message.id ? {...msg, progress: percentCompleted} : msg
-                    ));
-                },
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                    ...getTokenHeader(),
-                },
-            });
+            const updateProgress = (loaded: number, total: number) => {
+                const percentCompleted = Math.min(95, Math.round((loaded * 100) / total));
+                setMessages(prev => prev.map(msg =>
+                    msg.id === message.id ? {...msg, progress: percentCompleted} : msg
+                ));
+            };
+
+            let response;
+            try {
+                const uploadTicket = await axios.post(`${API_BASE_URL}/messages/upload-url`, {
+                    fileName: file.name,
+                    fileSize: file.size,
+                    fileType: file.type || 'application/octet-stream',
+                    device: message.device,
+                }, {
+                    headers: getTokenHeader(),
+                });
+
+                await axios.put(uploadTicket.data.uploadUrl, file, {
+                    headers: {'Content-Type': file.type || 'application/octet-stream'},
+                    onUploadProgress: (progressEvent) => {
+                        const total = progressEvent.total ?? file.size;
+                        updateProgress(progressEvent.loaded, total);
+                    },
+                });
+
+                setMessages(prev => prev.map(msg =>
+                    msg.id === message.id ? {...msg, progress: 98} : msg
+                ));
+
+                response = await axios.post(`${API_BASE_URL}/messages/upload-complete`, {
+                    fileName: uploadTicket.data.fileName,
+                    fileSize: uploadTicket.data.fileSize,
+                    fileType: uploadTicket.data.fileType,
+                    filePath: uploadTicket.data.filePath,
+                    device: message.device,
+                    type: uploadTicket.data.type,
+                }, {
+                    headers: getTokenHeader(),
+                });
+			} catch (directUploadError) {
+                const shouldFallbackToMultipart =
+                    axios.isAxiosError(directUploadError) &&
+                    directUploadError.config?.url?.includes('/messages/upload-url') &&
+                    [400, 404].includes(directUploadError.response?.status ?? 0);
+
+                if (shouldFallbackToMultipart) {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('device', message.device);
+
+                    response = await axios.post(`${API_BASE_URL}/messages/upload`, formData, {
+                        onUploadProgress: (progressEvent) => {
+                            const total = progressEvent.total ?? file.size;
+                            updateProgress(progressEvent.loaded, total);
+                        },
+                        headers: {
+                            'Content-Type': 'multipart/form-data',
+                            ...getTokenHeader(),
+                        },
+                    });
+                } else {
+                    throw directUploadError;
+                }
+            }
 
             const savedMessage: Message = {
                 ...response.data,

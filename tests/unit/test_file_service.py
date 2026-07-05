@@ -120,6 +120,71 @@ class TestFileService:
 		redis_repo.set_message_ttl.assert_awaited_once_with(1)
 		redis_repo.incr_storage_used_bytes.assert_awaited_once_with(3)
 
+	async def test_create_direct_upload_success(self, file_service):
+		service, file_repo, _, user_repo, redis_repo = file_service
+		user_repo.get_used_capacity.return_value = 0
+		redis_repo.get_storage_used_bytes.return_value = 0
+		file_repo.get_presigned_upload_url.return_value = "https://r2.example.com/upload"
+
+		result = await service.create_direct_upload(
+			user_id = 1,
+			file_name = "photo.png",
+			file_size = 10,
+			file_type = "image/png",
+			device = DeviceType.desktop,
+		)
+
+		assert result["upload_url"] == "https://r2.example.com/upload"
+		assert result["file_name"] == "photo.png"
+		assert result["file_path"].startswith("1/")
+		assert result["type"] == MessageType.image
+		file_repo.get_presigned_upload_url.assert_awaited_once()
+
+	async def test_complete_direct_upload_success(self, file_service):
+		service, file_repo, message_repo, user_repo, redis_repo = file_service
+		user_repo.get_used_capacity.return_value = 0
+		redis_repo.get_storage_used_bytes.return_value = 0
+		file_repo.get_object_metadata.return_value = {"ContentLength":3}
+		message_repo.create_message.return_value = SimpleNamespace(id = 2)
+
+		schema = FileMessageCreate(
+			user_id = 1,
+			device = DeviceType.desktop,
+			type = MessageType.file,
+			file_name = "a.txt",
+			file_size = 3,
+			file_type = "text/plain",
+			file_path = "1/a.txt",
+		)
+
+		result = await service.complete_direct_upload(schema)
+
+		assert result.id == 2
+		message_repo.create_message.assert_awaited_once()
+		user_repo.update_used_capacity.assert_awaited_once_with(1, 3)
+		redis_repo.set_message_ttl.assert_awaited_once_with(2)
+
+	async def test_complete_direct_upload_size_mismatch(self, file_service):
+		service, file_repo, _, user_repo, redis_repo = file_service
+		user_repo.get_used_capacity.return_value = 0
+		redis_repo.get_storage_used_bytes.return_value = 0
+		file_repo.get_object_metadata.return_value = {"ContentLength":2}
+
+		schema = FileMessageCreate(
+			user_id = 1,
+			device = DeviceType.desktop,
+			type = MessageType.file,
+			file_name = "a.txt",
+			file_size = 3,
+			file_type = "text/plain",
+			file_path = "1/a.txt",
+		)
+
+		with pytest.raises(FileUploadAbortedError):
+			await service.complete_direct_upload(schema)
+
+		file_repo.delete.assert_awaited_once_with("1/a.txt", is_temp = False)
+
 	async def test_check_quota_exceeded(self, file_service, monkeypatch):
 		service, file_repo, _, user_repo, _ = file_service
 		user_repo.get_used_capacity.return_value = 100

@@ -141,3 +141,54 @@ def test_download_with_r2_storage_redirect(monkeypatch):
 
 	assert download.status_code == 302
 	assert download.headers["location"] == "https://r2.example.com/1/demo.txt?signed=1"
+
+
+def test_direct_upload_api_flow(monkeypatch):
+	message_service = AsyncMock()
+	file_service = AsyncMock()
+	ws_broadcast = AsyncMock()
+	monkeypatch.setattr(message_router_module.ws_manager, "broadcast_to_user", ws_broadcast)
+	file_service.create_direct_upload.return_value = {
+		"upload_url":"https://r2.example.com/upload",
+		"file_name":"demo.txt",
+		"file_size":4,
+		"file_type":"text/plain",
+		"file_path":"1/demo.txt",
+		"type":"file",
+	}
+	file_service.complete_direct_upload.return_value = _msg_payload(3, msg_type="file") | {
+		"fileName":"demo.txt",
+		"fileSize":4,
+		"fileType":"text/plain",
+		"filePath":"1/demo.txt",
+	}
+
+	app = FastAPI()
+	app.include_router(message_router, prefix="/api/v1")
+	app.dependency_overrides[get_current_user_id] = lambda: 1
+	app.dependency_overrides[get_message_service] = lambda: message_service
+	app.dependency_overrides[get_file_service] = lambda: file_service
+	client = TestClient(app)
+
+	prepare = client.post(
+		"/api/v1/messages/upload-url",
+		json={"fileName":"demo.txt", "fileSize":4, "fileType":"text/plain", "device":"desktop"},
+	)
+	assert prepare.status_code == 200
+	assert prepare.json()["uploadUrl"] == "https://r2.example.com/upload"
+	assert prepare.json()["filePath"] == "1/demo.txt"
+
+	complete = client.post(
+		"/api/v1/messages/upload-complete",
+		json={
+			"fileName":"demo.txt",
+			"fileSize":4,
+			"fileType":"text/plain",
+			"filePath":"1/demo.txt",
+			"device":"desktop",
+			"type":"file",
+		},
+	)
+	assert complete.status_code == 200
+	assert complete.json()["id"] == 3
+	ws_broadcast.assert_awaited()

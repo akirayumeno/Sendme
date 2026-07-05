@@ -125,5 +125,20 @@ class R2FileRepo:
 			ExpiresIn = settings.R2_SIGNED_URL_EXPIRE_SECONDS,
 		)
 
+	async def get_presigned_upload_url(self, file_path: str, content_type: str) -> str:
+		return await asyncio.to_thread(
+			self.client.generate_presigned_url,
+			"put_object",
+			Params = {
+				"Bucket":self.bucket,
+				"Key":file_path,
+				"ContentType":content_type,
+			},
+			ExpiresIn = settings.R2_SIGNED_URL_EXPIRE_SECONDS,
+		)
+
+	async def get_object_metadata(self, file_path: str) -> dict:
+		return await asyncio.to_thread(self.client.head_object, Bucket = self.bucket, Key = file_path)
+
 	async def get_file_stream(self, file_path: str):
 		return await asyncio.to_thread(self.client.get_object, Bucket = self.bucket, Key = file_path)

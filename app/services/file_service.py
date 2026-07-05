@@ -1,8 +1,9 @@
+import os
 import uuid
 
 from fastapi import UploadFile
 
-from app.core.enums import MessageStatus
+from app.core.enums import DeviceType, MessageStatus, MessageType
 from app.core.orm_models import Message
 from app.core.settings import settings
 from app.schemas.schemas import FileMessageCreate
@@ -94,6 +95,69 @@ class FileService:
 
 		return uploaded_messages
 
+	async def create_direct_upload(
+			self,
+			user_id: int,
+			file_name: str,
+			file_size: int,
+			file_type: str,
+			device: DeviceType,
+	) -> dict:
+		"""
+		Generate a signed R2 upload URL after checking file and account capacity.
+		The browser uploads directly to R2, so the backend does not proxy bytes.
+		"""
+		if not hasattr(self.file_repo, "get_presigned_upload_url"):
+			raise FileUploadAbortedError("Direct upload is only available for R2 storage.")
+		if file_size > settings.MAX_FILE_SIZE_BYTES:
+			raise QuotaExceededError(f"File too large. Max allowed is {settings.MAX_FILE_SIZE_BYTES} bytes.")
+
+		await self._check_direct_upload_quota(user_id = user_id, file_size = file_size)
+
+		extension = os.path.splitext(file_name)[1]
+		final_filename = f"{user_id}/{uuid.uuid4().hex}{extension}"
+		mime_type = file_type or "application/octet-stream"
+		message_type = MessageType.image if mime_type.startswith("image/") else MessageType.file
+		upload_url = await self.file_repo.get_presigned_upload_url(final_filename, mime_type)
+
+		return {
+			"upload_url":upload_url,
+			"file_name":file_name,
+			"file_size":file_size,
+			"file_type":mime_type,
+			"file_path":final_filename,
+			"type":message_type,
+			"device":device,
+		}
+
+	async def complete_direct_upload(
+			self,
+			schema: FileMessageCreate,
+	) -> Message:
+		"""
+		Finalize a direct-to-R2 upload by validating the object and writing DB metadata.
+		"""
+		if not schema.file_path.startswith(f"{schema.user_id}/"):
+			raise MessagePermissionError("Message Permission denied.")
+
+		if hasattr(self.file_repo, "get_object_metadata"):
+			metadata = await self.file_repo.get_object_metadata(schema.file_path)
+			actual_size = int(metadata.get("ContentLength", 0))
+			if actual_size != schema.file_size:
+				await self.file_repo.delete(schema.file_path, is_temp = False)
+				raise FileUploadAbortedError("Uploaded file size does not match metadata.")
+
+		await self._check_direct_upload_quota(user_id = schema.user_id, file_size = schema.file_size)
+
+		data = schema.model_dump()
+		data["status"] = MessageStatus.sent
+		data["mime_type"] = data.pop("file_type")
+		uploaded_message = await self.message_repo.create_message(data)
+		await self.redis_repo.set_message_ttl(uploaded_message.id)
+		await self.user_repo.update_used_capacity(schema.user_id, schema.file_size)
+		await self.redis_repo.incr_storage_used_bytes(schema.file_size)
+		return uploaded_message
+
 	async def cancel_pending_upload(self, temp_filename: str):
 		"""
 		Action: Explicitly remove a file from temp storage if the user
@@ -158,6 +222,24 @@ class FileService:
 		global_used = await self.redis_repo.get_storage_used_bytes()
 		if global_used + file_size > settings.GLOBAL_MAX_STORAGE_BYTES:
 			await self.file_repo.delete_temp(temp_filename)
+			raise QuotaExceededError(
+				f"Service storage limit exceeded. Available: {settings.GLOBAL_MAX_STORAGE_BYTES - global_used} bytes, "
+				f"Requested: {file_size} bytes."
+			)
+
+	async def _check_direct_upload_quota(self, user_id: int, file_size: int):
+		"""
+		Validate direct upload capacity without temp-file cleanup side effects.
+		"""
+		current_used = await self.user_repo.get_used_capacity(user_id)
+		if current_used + file_size > settings.DEFAULT_MAX_CAPACITY_BYTES:
+			raise QuotaExceededError(
+				f"Quota exceeded. Available: {settings.DEFAULT_MAX_CAPACITY_BYTES - current_used} bytes, "
+				f"Requested: {file_size} bytes."
+			)
+
+		global_used = await self.redis_repo.get_storage_used_bytes()
+		if global_used + file_size > settings.GLOBAL_MAX_STORAGE_BYTES:
 			raise QuotaExceededError(
 				f"Service storage limit exceeded. Available: {settings.GLOBAL_MAX_STORAGE_BYTES - global_used} bytes, "
 				f"Requested: {file_size} bytes."

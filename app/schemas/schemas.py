@@ -54,6 +54,37 @@ class FileMessageCreate(MessageBase):
 	model_config = ConfigDict(populate_by_name = True)
 
 
+class DirectUploadRequest(BaseModel):
+	file_name: str = Field(..., alias = "fileName")
+	file_size: int = Field(..., gt = 0, alias = "fileSize")
+	file_type: str = Field(default = "application/octet-stream", alias = "fileType")
+	device: DeviceType = DeviceType.desktop
+
+	model_config = ConfigDict(populate_by_name = True)
+
+
+class DirectUploadResponse(BaseModel):
+	upload_url: str = Field(..., alias = "uploadUrl")
+	file_name: str = Field(..., alias = "fileName")
+	file_size: int = Field(..., alias = "fileSize")
+	file_type: str = Field(..., alias = "fileType")
+	file_path: str = Field(..., alias = "filePath")
+	type: MessageType
+
+	model_config = ConfigDict(populate_by_name = True)
+
+
+class CompleteDirectUploadRequest(BaseModel):
+	file_name: str = Field(..., alias = "fileName")
+	file_size: int = Field(..., gt = 0, alias = "fileSize")
+	file_type: str = Field(default = "application/octet-stream", alias = "fileType")
+	file_path: str = Field(..., alias = "filePath")
+	device: DeviceType = DeviceType.desktop
+	type: MessageType
+
+	model_config = ConfigDict(populate_by_name = True)
+
+
 class MessageResponse(BaseModel):
 	"""Response model that matches frontend Message interface exactly"""
 	model_config = ConfigDict(from_attributes = True, populate_by_name = True)
