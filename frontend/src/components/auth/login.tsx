@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {Send} from 'lucide-react';
 import type {ThemeConfig} from '../../types/type.tsx'; // Ensure path is correct
 
@@ -13,12 +13,31 @@ interface LoginProps {
 const Login: React.FC<LoginProps> = ({themeConfig, onLoginAttempt, onSwitchToRegister, error, isLoading}) => {
     const [username, setUsername] = useState<string>('');
     const [password, setPassword] = useState<string>('');
+    const usernameRef = useRef<HTMLInputElement>(null);
+    const passwordRef = useRef<HTMLInputElement>(null);
 
     const isDark = themeConfig.themeClasses.includes('bg-gray-900');
 
+    const syncAutofillValues = () => {
+        const nextUsername = usernameRef.current?.value ?? '';
+        const nextPassword = passwordRef.current?.value ?? '';
+        if (nextUsername !== username) setUsername(nextUsername);
+        if (nextPassword !== password) setPassword(nextPassword);
+    };
+
+    useEffect(() => {
+        const timers = [0, 250, 1000].map(delay => window.setTimeout(syncAutofillValues, delay));
+        return () => timers.forEach(timer => window.clearTimeout(timer));
+    }, []);
+
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
-        onLoginAttempt(username, password);
+        const nextUsername = usernameRef.current?.value ?? username;
+        const nextPassword = passwordRef.current?.value ?? password;
+        setUsername(nextUsername);
+        setPassword(nextPassword);
+        if (!nextUsername.trim() || !nextPassword.trim()) return;
+        onLoginAttempt(nextUsername, nextPassword);
     };
 
     const {cardClasses, inputClasses} = themeConfig;
@@ -50,10 +69,13 @@ const Login: React.FC<LoginProps> = ({themeConfig, onLoginAttempt, onSwitchToReg
                             Username
                         </label>
                         <input
+                            ref={usernameRef}
                             id="username"
                             type="text"
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
+                            onInput={syncAutofillValues}
+                            onFocus={syncAutofillValues}
                             autoComplete="username"
                             required
                             className={`w-full p-3 border rounded-xl focus:ring-blue-500 focus:border-blue-500 focus:placeholder-transparent ${inputClasses} autofill-fix`}
@@ -71,10 +93,13 @@ const Login: React.FC<LoginProps> = ({themeConfig, onLoginAttempt, onSwitchToReg
                             Password
                         </label>
                         <input
+                            ref={passwordRef}
                             id="password"
                             type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
+                            onInput={syncAutofillValues}
+                            onFocus={syncAutofillValues}
                             autoComplete="current-password"
                             required
                             className={`w-full p-3 border rounded-xl focus:ring-blue-500 focus:border-blue-500 focus:placeholder-transparent ${inputClasses} autofill-fix`}
