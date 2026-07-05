@@ -37,7 +37,7 @@ class Settings(BaseSettings):
 	# --- Service Capacity Configuration ---
 	# Default per-user storage capacity limit (100MB).
 	DEFAULT_MAX_CAPACITY_BYTES: int = 100 * 1024 * 1024
-	MAX_FILE_SIZE_BYTES: int = 20 * 1024 * 1024
+	MAX_FILE_SIZE_BYTES: int = 25 * 1024 * 1024
 	GLOBAL_MAX_STORAGE_BYTES: int = 9 * 1024 * 1024 * 1024
 
 	# --- Auth (OTP) ---

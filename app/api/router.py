@@ -102,24 +102,23 @@ async def upload_file(
 	if not file.filename:
 		raise HTTPException(status_code = 400, detail = "Missing filename.")
 
-	upload_info = await service.handle_initial_upload(file)
-	extension = Path(upload_info["original_filename"]).suffix
-	final_filename = f"{user_id}/{uuid.uuid4().hex}{extension}"
-	message_type = MessageType.image if (upload_info["mime_type"] or "").startswith("image/") else MessageType.file
-
-	schema = FileMessageCreate.model_validate(
-		{
-			"user_id":user_id,
-			"device":device,
-			"type":message_type,
-			"file_size":upload_info["size_bytes"],
-			"file_type":upload_info["mime_type"] or "application/octet-stream",
-			"file_name":upload_info["original_filename"],
-			"file_path":final_filename
-		}
-	)
-
 	try:
+		upload_info = await service.handle_initial_upload(file)
+		extension = Path(upload_info["original_filename"]).suffix
+		final_filename = f"{user_id}/{uuid.uuid4().hex}{extension}"
+		message_type = MessageType.image if (upload_info["mime_type"] or "").startswith("image/") else MessageType.file
+
+		schema = FileMessageCreate.model_validate(
+			{
+				"user_id":user_id,
+				"device":device,
+				"type":message_type,
+				"file_size":upload_info["size_bytes"],
+				"file_type":upload_info["mime_type"] or "application/octet-stream",
+				"file_name":upload_info["original_filename"],
+				"file_path":final_filename
+			}
+		)
 		message = await service.finalize_file_message(
 			schema = schema,
 			temp_filename = upload_info["temp_filename"],

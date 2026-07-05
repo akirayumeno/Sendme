@@ -15,6 +15,7 @@ const RAW_API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://
 const API_BASE_URL = RAW_API_BASE_URL.replace(/\/+$/, '').endsWith('/api/v1')
     ? RAW_API_BASE_URL.replace(/\/+$/, '')
     : `${RAW_API_BASE_URL.replace(/\/+$/, '')}/api/v1`;
+const MAX_FILE_SIZE_BYTES = Number((import.meta as any).env?.VITE_MAX_FILE_SIZE_BYTES || 20 * 1024 * 1024);
 
 const SendMeResponsive = () => {
     const themeConfig = useTheme();
@@ -468,19 +469,23 @@ const SendMeResponsive = () => {
         });
         if (uniqueFiles.length === 0) return;
 
-        const newMessages: Message[] = uniqueFiles.map(file => ({
-            id: `file_${crypto.randomUUID()}`,
-            type: file.type.startsWith('image/') ? 'image' : 'file',
-            status: 'uploading',
-            file,
-            fileName: file.name,
-            fileSize: formatFileSize(file.size),
-            fileType: file.type,
-            imageUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
-            progress: 0,
-            created_at: formatTimestamp(new Date()),
-            device: 'desktop',
-        }));
+        const newMessages: Message[] = uniqueFiles.map(file => {
+            const isTooLarge = file.size > MAX_FILE_SIZE_BYTES;
+            return {
+                id: `file_${crypto.randomUUID()}`,
+                type: file.type.startsWith('image/') ? 'image' : 'file',
+                status: isTooLarge ? 'error' : 'uploading',
+                file: isTooLarge ? undefined : file,
+                fileName: file.name,
+                fileSize: formatFileSize(file.size),
+                fileType: file.type,
+                imageUrl: !isTooLarge && file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
+                progress: 0,
+                error: isTooLarge ? `File too large. Max allowed is ${formatFileSize(MAX_FILE_SIZE_BYTES)}.` : undefined,
+                created_at: formatTimestamp(new Date()),
+                device: 'desktop',
+            };
+        });
 
         setMessages(prev => [...prev, ...newMessages]);
 
