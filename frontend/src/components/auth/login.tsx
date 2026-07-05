@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {Send} from 'lucide-react';
+import {Moon, Send, Sun} from 'lucide-react';
 import type {ThemeConfig} from '../../types/type.tsx'; // Ensure path is correct
 
 interface LoginProps {
@@ -59,6 +59,16 @@ const Login: React.FC<LoginProps> = ({themeConfig, onLoginAttempt, onSwitchToReg
     return (
         <div
             className={`min-h-screen flex items-center justify-center transition-colors duration-200 ${themeConfig.themeClasses}`}>
+            <button
+                type="button"
+                onClick={themeConfig.toggleTheme}
+                className={`absolute right-5 top-5 focus:outline-none p-2 rounded-lg transition-colors ${
+                    isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-100' : 'bg-white hover:bg-gray-100 text-gray-700'
+                }`}
+                aria-label="Toggle theme"
+            >
+                {isDark ? <Sun className="w-5 h-5"/> : <Moon className="w-5 h-5"/>}
+            </button>
             <div className={`w-full max-w-md mx-auto ${cardClasses} p-8 md:p-10 rounded-xl shadow-2xl border`}>
                 <div className="flex items-center justify-center mb-6">
                     <div

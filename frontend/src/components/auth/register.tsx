@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {ArrowLeft, UserPlus} from 'lucide-react';
+import {ArrowLeft, Moon, Sun, UserPlus} from 'lucide-react';
 import type {ThemeConfig} from '../../types/type.tsx';
 
 interface RegisterProps {
@@ -86,6 +86,16 @@ const Register: React.FC<RegisterProps> = ({
 
     return (
         <div className={`min-h-screen flex items-center justify-center transition-colors duration-200 px-4 py-4 ${themeConfig.themeClasses}`}>
+            <button
+                type="button"
+                onClick={themeConfig.toggleTheme}
+                className={`absolute right-5 top-5 focus:outline-none p-2 rounded-lg transition-colors ${
+                    isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-100' : 'bg-white hover:bg-gray-100 text-gray-700'
+                }`}
+                aria-label="Toggle theme"
+            >
+                {isDark ? <Sun className="w-5 h-5"/> : <Moon className="w-5 h-5"/>}
+            </button>
             <div className={`w-full max-w-md mx-auto ${cardClasses} p-5 md:p-6 rounded-xl shadow-2xl border max-h-[92vh] overflow-hidden`}>
                 <div className="flex items-center justify-center mb-4">
                     <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
