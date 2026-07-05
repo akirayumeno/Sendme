@@ -2,33 +2,27 @@ import asyncio
 import os
 from pathlib import Path
 
-import boto3
 import aiofiles
 import aiofiles.os as aios
+import boto3
 
 from app.core.settings import settings
-from app.storage.exceptions import FileDeleteError, FileWriteError, RepositoryError, CapacityExceededError
+from app.storage.exceptions import CapacityExceededError, FileDeleteError, FileWriteError, RepositoryError
 
 
 class R2FileRepo:
-	"""
-	R2 (S3-compatible) storage with local temp staging.
-	Temp files are stored locally, then uploaded to R2 on finalize.
-	"""
-
 	def __init__(
 			self,
-			upload_dir: Path = Path("uploads"),
-			endpoint: str = "",
-			bucket: str = "",
-			access_key_id: str = "",
-			secret_access_key: str = "",
+			upload_dir: Path,
+			endpoint: str,
+			bucket: str,
+			access_key_id: str,
+			secret_access_key: str,
 	):
 		self.upload_dir = upload_dir
 		self.temp_dir = self.upload_dir / "temp"
 		self.upload_dir.mkdir(parents = True, exist_ok = True)
 		self.temp_dir.mkdir(parents = True, exist_ok = True)
-
 		self.bucket = bucket
 		self.client = boto3.client(
 			"s3",
@@ -42,44 +36,45 @@ class R2FileRepo:
 		base = self.temp_dir if is_temp else self.upload_dir
 		full_path = base / file_path
 		full_path.parent.mkdir(parents = True, exist_ok = True)
-
 		bytes_written = 0
 		chunk_size = 1024 * 1024
+
 		try:
 			async with aiofiles.open(full_path, "wb") as f:
 				if hasattr(file_stream, "__aiter__"):
 					async for chunk in file_stream:
-						if not chunk:
-							continue
-						if bytes_written + len(chunk) > settings.DEFAULT_MAX_CAPACITY_BYTES:
-							raise CapacityExceededError("Disk or User limit reached during stream.")
-						await f.write(chunk)
-						bytes_written += len(chunk)
+						bytes_written = await self._write_chunk(f, chunk, bytes_written)
 				elif hasattr(file_stream, "read") and asyncio.iscoroutinefunction(file_stream.read):
 					while True:
 						chunk = await file_stream.read(chunk_size)
 						if not chunk:
 							break
-						if bytes_written + len(chunk) > settings.DEFAULT_MAX_CAPACITY_BYTES:
-							raise CapacityExceededError("Disk or User limit reached during stream.")
-						await f.write(chunk)
-						bytes_written += len(chunk)
+						bytes_written = await self._write_chunk(f, chunk, bytes_written)
 				elif hasattr(file_stream, "read"):
 					while True:
 						chunk = await asyncio.to_thread(file_stream.read, chunk_size)
 						if not chunk:
 							break
-						if bytes_written + len(chunk) > settings.DEFAULT_MAX_CAPACITY_BYTES:
-							raise CapacityExceededError("Disk or User limit reached during stream.")
-						await f.write(chunk)
-						bytes_written += len(chunk)
+						bytes_written = await self._write_chunk(f, chunk, bytes_written)
 				else:
 					raise TypeError(f"Unsupported file stream type: {type(file_stream)!r}")
 			return bytes_written
+		except CapacityExceededError:
+			if await aios.path.exists(full_path):
+				await aios.remove(full_path)
+			raise
 		except Exception as e:
 			if await aios.path.exists(full_path):
 				await aios.remove(full_path)
 			raise FileWriteError(file_path = str(full_path), original_exception = e) from e
+
+	async def _write_chunk(self, file_handle, chunk: bytes, bytes_written: int) -> int:
+		if not chunk:
+			return bytes_written
+		if bytes_written + len(chunk) > settings.MAX_FILE_SIZE_BYTES:
+			raise CapacityExceededError("File size limit reached during stream.")
+		await file_handle.write(chunk)
+		return bytes_written + len(chunk)
 
 	async def move_to_final(self, temp_filename: str, final_filename: str) -> str:
 		temp_path = self.temp_dir / temp_filename
@@ -107,13 +102,13 @@ class R2FileRepo:
 					return True
 				return False
 			except Exception as e:
-				raise FileDeleteError(f"Failed to delete temp file {full_path}: {e}") from e
+				raise FileDeleteError(str(full_path), e) from e
 
 		try:
 			await asyncio.to_thread(self.client.delete_object, Bucket = self.bucket, Key = file_path)
 			return True
 		except Exception as e:
-			raise FileDeleteError(f"Failed to delete R2 object {file_path}: {e}") from e
+			raise FileDeleteError(file_path, e) from e
 
 	async def delete_temp(self, temp_filename: str) -> bool:
 		return await self.delete(temp_filename, is_temp = True)
@@ -121,8 +116,7 @@ class R2FileRepo:
 	async def get_presigned_url(self, file_path: str, as_download: bool) -> str:
 		params = {"Bucket": self.bucket, "Key": file_path}
 		if as_download:
-			filename = os.path.basename(file_path)
-			params["ResponseContentDisposition"] = f'attachment; filename="{filename}"'
+			params["ResponseContentDisposition"] = f'attachment; filename="{os.path.basename(file_path)}"'
 		return await asyncio.to_thread(
 			self.client.generate_presigned_url,
 			"get_object",
