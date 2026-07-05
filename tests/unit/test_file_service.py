@@ -142,13 +142,13 @@ class TestFileService:
 		assert result["file_name"] == "photo.png"
 		assert result["file_path"].startswith("1/")
 		assert result["type"] == MessageType.image
-		file_repo.get_presigned_upload_url.assert_awaited_once()
+		r2_repo.get_presigned_upload_url.assert_awaited_once()
 
 	async def test_complete_direct_upload_success(self, file_service):
 		service, file_repo, message_repo, user_repo, redis_repo = file_service
 		user_repo.get_used_capacity.return_value = 0
 		redis_repo.get_storage_used_bytes.return_value = 0
-		file_repo.get_object_metadata.return_value = {"ContentLength":3}
+		file_repo.get_object_metadata.return_value = {"ContentLength":123}
 		message_repo.create_message.return_value = SimpleNamespace(id = 2)
 
 		schema = FileMessageCreate(
@@ -158,7 +158,7 @@ class TestFileService:
 			file_name = "1231231.pdf",
 			file_size = 123,
 			file_type = "pdf",
-			file_path = "cloudflare.r2.com"
+			file_path = "1/cloudflare.r2.com"
 		)
 
 		result = await service.complete_direct_upload(schema)
@@ -172,7 +172,7 @@ class TestFileService:
 		service, file_repo, _, user_repo, redis_repo = file_service
 		user_repo.get_used_capacity.return_value = 0
 		redis_repo.get_storage_used_bytes.return_value = 0
-		file_repo.get_object_metadata.return_value = {"ContentLength":2}
+		file_repo.get_object_metadata.return_value = {"ContentLength":123}
 
 		schema = FileMessageCreate(
 			user_id = 1,
@@ -181,13 +181,13 @@ class TestFileService:
 			file_name = "1231231.pdf",
 			file_size = 123,
 			file_type = "pdf",
-			file_path = "cloudflare.r2.com"
+			file_path = "1/cloudflare.r2.com"
 		)
 
 		with pytest.raises(FileUploadAbortedError):
 			await service.complete_direct_upload(schema)
 
-		file_repo.delete.assert_awaited_once_with("1/a.txt", is_temp = False)
+		file_repo.delete.assert_awaited_once_with("1231231.pdf", is_temp = False)
 
 	async def test_check_quota_exceeded(self, file_service, monkeypatch):
 		service, file_repo, _, user_repo, _ = file_service
