@@ -156,10 +156,10 @@ class TestFileService:
 			user_id = 1,
 			device = DeviceType.desktop,
 			type = MessageType.file,
-			file_name = "1231231.pdf",
-			file_size = 123,
-			file_type = "pdf",
-			file_path = "1/cloudflare.r2.com"
+			fileName = "1231231.pdf",
+			fileSize = 123,
+			fileType = "pdf",
+			filePath = "1/cloudflare.r2.com"
 		)
 
 		result = await service.complete_direct_upload(schema)
@@ -179,10 +179,10 @@ class TestFileService:
 			user_id = 1,
 			device = DeviceType.desktop,
 			type = MessageType.file,
-			file_name = "1231231.pdf",
-			file_size = 123,
-			file_type = "pdf",
-			file_path = "1/cloudflare.r2.com"
+			fileName = "1231231.pdf",
+			fileSize = 123,
+			fileType = "pdf",
+			filePath = "1/cloudflare.r2.com"
 		)
 
 		with pytest.raises(FileUploadAbortedError):
