@@ -128,8 +128,9 @@ class TestFileService:
 		service, file_repo, r2_repo, user_repo, redis_repo = file_service
 		user_repo.get_used_capacity.return_value = 0
 		redis_repo.get_storage_used_bytes.return_value = 0
-		service.r2_repo.get_presigned_upload_url = AsyncMock(return_value = "https://r2.example.com/upload")
-		
+		mock_get_url = AsyncMock(return_value = "https://r2.example.com/upload")
+		service.r2_repo.get_presigned_upload_url = mock_get_url
+
 		result = await service.create_direct_upload(
 			user_id = 1,
 			file_name = "photo.png",
@@ -142,7 +143,7 @@ class TestFileService:
 		assert result["file_name"] == "photo.png"
 		assert result["file_path"].startswith("1/")
 		assert result["type"] == MessageType.image
-		r2_repo.get_presigned_upload_url.assert_awaited_once()
+		mock_get_url.assert_awaited_once()
 
 	async def test_complete_direct_upload_success(self, file_service):
 		service, file_repo, message_repo, user_repo, redis_repo = file_service
