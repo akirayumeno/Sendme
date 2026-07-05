@@ -21,6 +21,13 @@ const API_BASE_URL = (
 const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, onDelete, themeConfig, onMediaLoad}) => {
     const [isCopied, setIsCopied] = useState(false);
     const timeoutRef = useRef<number | null>(null);
+    const isDark = themeConfig.themeClasses.includes('bg-gray-900');
+    const subtleTextClass = isDark ? 'text-gray-300' : 'text-gray-600';
+    const mutedTextClass = isDark ? 'text-gray-400' : 'text-gray-500';
+    const uploadPanelClass = isDark
+        ? 'bg-gray-800/70 border-gray-700 text-gray-200'
+        : 'bg-white/85 border-gray-200 text-gray-700';
+    const uploadSpinnerClass = isDark ? 'border-blue-300 border-t-transparent' : 'border-blue-500 border-t-transparent';
 
     const getTokenHeader = () => {
         const token = localStorage.getItem('authToken');
@@ -133,11 +140,11 @@ const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, onDelete, the
             return (
                 <div className="space-y-3">
                     {message.status === 'uploading' ? (
-                        <div className="flex items-center justify-center p-8 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                        <div className={`flex items-center justify-center p-8 rounded-lg border ${uploadPanelClass}`}>
                             <div className="text-center">
                                 <div
-                                    className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                                <p className={`text-sm ${themeConfig.cardClasses}`}>
+                                    className={`w-16 h-16 border-4 rounded-full animate-spin mx-auto mb-2 ${uploadSpinnerClass}`}></div>
+                                <p className="text-sm font-medium">
                                     Uploading... {message.progress}%
                                 </p>
                             </div>
@@ -193,10 +200,10 @@ const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, onDelete, the
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between">
                                 <div className="flex-1 min-w-0">
-                                    <p className={`text-sm font-medium truncate ${themeConfig.cardClasses}`}>
+                                    <p className={`text-sm font-medium truncate ${subtleTextClass}`}>
                                         {message.fileName}
                                     </p>
-                                    <p className={`text-xs ${themeConfig.cardClasses}`}>
+                                    <p className={`text-xs ${mutedTextClass}`}>
                                         {message.fileSize}
                                         {message.status === 'uploading' && ` • Uploading... ${message.progress}%`}
                                         {message.status === 'success' && ' • Complete'}
