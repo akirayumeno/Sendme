@@ -109,15 +109,14 @@ def test_upload_download_view(monkeypatch):
 		assert view.status_code == 415
 
 
-def test_download_with_presigned_storage(monkeypatch):
+def test_download_with_r2_storage_proxy(monkeypatch):
 	file_service = AsyncMock()
 	message_service = AsyncMock()
 
-	class PresignedFileRepo:
-		async def get_presigned_url(self, file_path: str, as_download: bool) -> str:
+	class R2FileRepo:
+		async def get_file_response_data(self, file_path: str):
 			assert file_path == "1/demo.txt"
-			assert as_download is True
-			return "https://r2.example.com/signed-download"
+			return b"demo", "text/plain"
 
 	file_service.get_file_path_for_user.return_value = "1/demo.txt"
 
@@ -126,10 +125,12 @@ def test_download_with_presigned_storage(monkeypatch):
 	app.dependency_overrides[get_current_user_id] = lambda: 1
 	app.dependency_overrides[get_message_service] = lambda: message_service
 	app.dependency_overrides[get_file_service] = lambda: file_service
-	app.dependency_overrides[get_file_repo] = lambda: PresignedFileRepo()
+	app.dependency_overrides[get_file_repo] = lambda: R2FileRepo()
 	client = TestClient(app)
 
-	download = client.get("/api/v1/messages/2/download", follow_redirects = False)
+	download = client.get("/api/v1/messages/2/download")
 
-	assert download.status_code == 302
-	assert download.headers["location"] == "https://r2.example.com/signed-download"
+	assert download.status_code == 200
+	assert download.content == b"demo"
+	assert download.headers["content-type"] == "text/plain; charset=utf-8"
+	assert download.headers["content-disposition"] == 'attachment; filename="demo.txt"'

@@ -3,7 +3,7 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, Response
 from starlette import status
 
 from app.core.dependencies import get_current_user_id, get_file_repo, get_file_service, get_message_service
@@ -41,9 +41,16 @@ def _resolve_file_path(file_repo: FileRepo, relative_path: str) -> Path:
 
 async def _file_response(file_repo: FileRepo, relative_path: str, as_download: bool):
 	"""Build a file response with optional download filename behavior."""
-	if hasattr(file_repo, "get_presigned_url"):
-		url = await file_repo.get_presigned_url(relative_path, as_download = as_download)
-		return RedirectResponse(url = url, status_code = status.HTTP_302_FOUND)
+	if hasattr(file_repo, "get_file_response_data"):
+		content, content_type = await file_repo.get_file_response_data(relative_path)
+		headers = {}
+		if as_download:
+			headers["Content-Disposition"] = f'attachment; filename="{os.path.basename(relative_path)}"'
+		return Response(
+			content = content,
+			media_type = content_type or "application/octet-stream",
+			headers = headers,
+		)
 
 	full_path = _resolve_file_path(file_repo, relative_path)
 	if not full_path.exists():

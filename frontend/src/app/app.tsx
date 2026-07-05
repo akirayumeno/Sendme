@@ -38,6 +38,7 @@ const SendMeResponsive = () => {
     const preserveDistanceFromBottomRef = useRef<number | null>(null);
     const deletingMessageIdRef = useRef<string | null>(null);
     const selfUpdatedMessageIdsRef = useRef<Set<string>>(new Set());
+    const recentFileFingerprintsRef = useRef<Map<string, number>>(new Map());
     const scrollToBottom = (behavior: ScrollBehavior = 'auto') => {
         messagesEndRef.current?.scrollIntoView({behavior, block: 'end'});
     };
@@ -436,7 +437,19 @@ const SendMeResponsive = () => {
     // Queue selected files as optimistic messages, then upload sequentially.
     const handleFileUpload = async (files: File[]) => {
         shouldStickToBottomRef.current = true;
-        const newMessages: Message[] = files.map(file => ({
+        const now = Date.now();
+        const uniqueFiles = files.filter(file => {
+            const fingerprint = `${file.name}:${file.size}:${file.lastModified}`;
+            const lastSeen = recentFileFingerprintsRef.current.get(fingerprint);
+            if (lastSeen && now - lastSeen < 2000) {
+                return false;
+            }
+            recentFileFingerprintsRef.current.set(fingerprint, now);
+            return true;
+        });
+        if (uniqueFiles.length === 0) return;
+
+        const newMessages: Message[] = uniqueFiles.map(file => ({
             id: `file_${crypto.randomUUID()}`,
             type: file.type.startsWith('image/') ? 'image' : 'file',
             status: 'uploading',
@@ -603,7 +616,7 @@ const SendMeResponsive = () => {
                     onLogout={handleLogout}
                 />
 
-                {isLoading ? (
+                {isLoading && messages.length === 0 ? (
                     <div className="flex-1 flex items-center justify-center">
                         <div className="text-center">
                             <div

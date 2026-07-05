@@ -123,3 +123,10 @@ class R2FileRepo:
 			Params = params,
 			ExpiresIn = settings.R2_SIGNED_URL_EXPIRE_SECONDS,
 		)
+
+	async def get_file_response_data(self, file_path: str) -> tuple[bytes, str | None]:
+		def _load_object():
+			response = self.client.get_object(Bucket = self.bucket, Key = file_path)
+			return response["Body"].read(), response.get("ContentType")
+
+		return await asyncio.to_thread(_load_object)
