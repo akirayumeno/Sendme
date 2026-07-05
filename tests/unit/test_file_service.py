@@ -128,8 +128,8 @@ class TestFileService:
 		service, file_repo, r2_repo, user_repo, redis_repo = file_service
 		user_repo.get_used_capacity.return_value = 0
 		redis_repo.get_storage_used_bytes.return_value = 0
-		r2_repo.get_presigned_upload_url.return_value = "https://r2.example.com/upload"
-
+		service.r2_repo.get_presigned_upload_url = AsyncMock(return_value = "https://r2.example.com/upload")
+		
 		result = await service.create_direct_upload(
 			user_id = 1,
 			file_name = "photo.png",
@@ -165,14 +165,14 @@ class TestFileService:
 
 		assert result.id == 2
 		message_repo.create_message.assert_awaited_once()
-		user_repo.update_used_capacity.assert_awaited_once_with(1, 3)
+		user_repo.update_used_capacity.assert_awaited_once_with(1, 123)
 		redis_repo.set_message_ttl.assert_awaited_once_with(2)
 
 	async def test_complete_direct_upload_size_mismatch(self, file_service):
 		service, file_repo, _, user_repo, redis_repo = file_service
 		user_repo.get_used_capacity.return_value = 0
 		redis_repo.get_storage_used_bytes.return_value = 0
-		file_repo.get_object_metadata.return_value = {"ContentLength":123}
+		file_repo.get_object_metadata.return_value = {"ContentLength":500}
 
 		schema = FileMessageCreate(
 			user_id = 1,
@@ -187,7 +187,7 @@ class TestFileService:
 		with pytest.raises(FileUploadAbortedError):
 			await service.complete_direct_upload(schema)
 
-		file_repo.delete.assert_awaited_once_with("1231231.pdf", is_temp = False)
+		file_repo.delete.assert_awaited_once_with("1/cloudflare.r2.com", is_temp = False)
 
 	async def test_check_quota_exceeded(self, file_service, monkeypatch):
 		service, file_repo, _, user_repo, _ = file_service
