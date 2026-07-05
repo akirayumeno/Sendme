@@ -13,6 +13,7 @@ interface LoginProps {
 const Login: React.FC<LoginProps> = ({themeConfig, onLoginAttempt, onSwitchToRegister, error, isLoading}) => {
     const [username, setUsername] = useState<string>('');
     const [password, setPassword] = useState<string>('');
+    const [, setAutofillTick] = useState<number>(0);
     const usernameRef = useRef<HTMLInputElement>(null);
     const passwordRef = useRef<HTMLInputElement>(null);
 
@@ -23,12 +24,25 @@ const Login: React.FC<LoginProps> = ({themeConfig, onLoginAttempt, onSwitchToReg
         const nextPassword = passwordRef.current?.value ?? '';
         if (nextUsername !== username) setUsername(nextUsername);
         if (nextPassword !== password) setPassword(nextPassword);
+        setAutofillTick(tick => tick + 1);
     };
 
     useEffect(() => {
-        const timers = [0, 250, 1000].map(delay => window.setTimeout(syncAutofillValues, delay));
-        return () => timers.forEach(timer => window.clearTimeout(timer));
+        let attempts = 0;
+        const interval = window.setInterval(() => {
+            syncAutofillValues();
+            attempts += 1;
+            if (attempts >= 20) {
+                window.clearInterval(interval);
+            }
+        }, 150);
+        syncAutofillValues();
+        return () => window.clearInterval(interval);
     }, []);
+
+    const currentUsername = usernameRef.current?.value || username;
+    const currentPassword = passwordRef.current?.value || password;
+    const canSubmit = Boolean(currentUsername.trim() && currentPassword.trim()) && !isLoading;
 
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
@@ -119,10 +133,10 @@ const Login: React.FC<LoginProps> = ({themeConfig, onLoginAttempt, onSwitchToReg
                     {/* Login Button */}
                     <button
                         type="submit"
-                        disabled={isLoading || !username.trim() || !password.trim()}
+                        disabled={!canSubmit}
                         className={`w-full py-3 px-4 rounded-xl font-semibold transition-colors duration-200 shadow-md
                             ${
-                            isLoading || !username.trim() || !password.trim()
+                            !canSubmit
                                 ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
                                 : 'bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white'
                         }`}
