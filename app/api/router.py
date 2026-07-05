@@ -2,11 +2,11 @@ import os
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse, Response
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse, StreamingResponse
 from starlette import status
 
-from app.core.dependencies import get_current_user_id, get_file_repo, get_file_service, get_message_service
+from app.core.dependencies import get_current_user_id, get_file_repo, get_file_service, get_message_service, get_user_id_from_token
 from app.core.enums import DeviceType, MessageType
 from app.realtime.ws_manager import ws_manager
 from app.schemas.schemas import FileMessageCreate, MessageResponse, TextMessageCreate, TextMessageRequest
@@ -39,23 +39,24 @@ def _resolve_file_path(file_repo: FileRepo, relative_path: str) -> Path:
 	return full_path
 
 
-async def _file_response(file_repo: FileRepo, relative_path: str, as_download: bool):
+async def _file_response(file_repo: FileRepo, relative_path: str, as_download: bool, download_name: str | None = None):
 	"""Build a file response with optional download filename behavior."""
-	if hasattr(file_repo, "get_file_response_data"):
-		content, content_type = await file_repo.get_file_response_data(relative_path)
+	if hasattr(file_repo, "get_file_stream"):
+		r2_object = await file_repo.get_file_stream(relative_path)
 		headers = {}
 		if as_download:
-			headers["Content-Disposition"] = f'attachment; filename="{os.path.basename(relative_path)}"'
-		return Response(
-			content = content,
-			media_type = content_type or "application/octet-stream",
+			filename = download_name or os.path.basename(relative_path)
+			headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+		return StreamingResponse(
+			r2_object["Body"].iter_chunks(chunk_size = 1024 * 1024),
+			media_type = r2_object.get("ContentType") or "application/octet-stream",
 			headers = headers,
 		)
 
 	full_path = _resolve_file_path(file_repo, relative_path)
 	if not full_path.exists():
 		raise HTTPException(status_code = 404, detail = "File not found.")
-	filename = os.path.basename(relative_path) if as_download else None
+	filename = (download_name or os.path.basename(relative_path)) if as_download else None
 	return FileResponse(path = str(full_path), filename = filename)
 
 
@@ -139,13 +140,29 @@ async def upload_file(
 @router.get("/{message_id}/download")
 async def download_file(
 		message_id: int,
-		user_id: int = Depends(get_current_user_id),
+		token: str | None = Query(None),
+		authorization: str | None = Header(None),
 		file_repo: FileRepo = Depends(get_file_repo),
 		service: FileService = Depends(get_file_service),
 ):
 	"""Download file by message id with owner permission check."""
-	file_path = await service.get_file_path_for_user(message_id = message_id, user_id = user_id)
-	return await _file_response(file_repo, file_path, as_download = True)
+	auth_token = token
+	if not auth_token and authorization and authorization.lower().startswith("bearer "):
+		auth_token = authorization.split(" ", 1)[1]
+	if not auth_token:
+		raise HTTPException(status_code = 401, detail = "Not authenticated")
+	try:
+		user_id = get_user_id_from_token(auth_token)
+		message = await service.get_file_for_user(message_id = message_id, user_id = user_id)
+	except ValueError as exc:
+		raise HTTPException(status_code = 401, detail = "Invalid access token") from exc
+	except Exception as exc:
+		raise HTTPException(status_code = 404, detail = "File not found") from exc
+
+	if not message.file_path:
+		raise HTTPException(status_code = 404, detail = "File not found.")
+
+	return await _file_response(file_repo, message.file_path, as_download = True, download_name = message.file_name)
 
 
 @router.get("/{message_id}/view")

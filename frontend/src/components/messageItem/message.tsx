@@ -47,16 +47,18 @@ const MessageItem: React.FC<MessageItemProps> = ({message, onCopy, onDelete, the
 
     const handleDownload = async () => {
         if (message.id && message.status === 'success') {
-            try {
-                const response = await axios.get(`${API_BASE_URL}/${message.id}/download`, {
-                    headers: getTokenHeader(),
-                    responseType: 'blob',
-                });
-                downloadBlob(response.data, message.fileName || 'download');
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                console.error('Download failed: missing auth token');
                 return;
-            } catch (error) {
-                console.error('Download failed:', error);
             }
+            const link = document.createElement('a');
+            link.href = `${API_BASE_URL}/${message.id}/download?token=${encodeURIComponent(token)}`;
+            link.download = message.fileName || 'download';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            return;
         }
 
         if (message.file) {

@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.router import router as message_router
+from app.core import security
 from app.core.dependencies import (
 	get_current_user_id,
 	get_file_repo,
@@ -79,7 +80,7 @@ class FakeFileService:
 		return "1/demo.txt"
 
 	async def get_file_for_user(self, message_id: int, user_id: int):
-		return SimpleNamespace(type = "image", file_path = "1/demo.txt", user_id = user_id)
+		return SimpleNamespace(type = "image", file_path = "1/demo.txt", file_name = "demo.txt", user_id = user_id)
 
 
 def test_message_api_flow_end_to_end():
@@ -104,7 +105,8 @@ def test_message_api_flow_end_to_end():
 		history = client.get("/api/v1/messages/history")
 		assert history.status_code == 200
 
-		download = client.get("/api/v1/messages/99/download")
+		token = security.create_access_token(1)
+		download = client.get("/api/v1/messages/99/download", headers={"Authorization":f"Bearer {token}"})
 		assert download.status_code == 200
 		assert download.content == b"demo"
 

@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.api import router as message_router_module
 from app.api.router import router as message_router
+from app.core import security
 from app.core.dependencies import (
 	get_current_user_id,
 	get_file_repo,
@@ -82,7 +83,7 @@ def test_upload_download_view(monkeypatch):
 		file_service.get_file_for_user.return_value = type(
 			"FileMessage",
 			(),
-			{"type": "file", "file_path": "1/demo.txt", "user_id": 1},
+			{"type": "file", "file_path": "1/demo.txt", "file_name": "demo.txt", "user_id": 1},
 		)()
 
 		app = FastAPI()
@@ -101,7 +102,8 @@ def test_upload_download_view(monkeypatch):
 		assert upload.status_code == 200
 		ws_broadcast.assert_awaited()
 
-		download = client.get("/api/v1/messages/2/download")
+		token = security.create_access_token(1)
+		download = client.get("/api/v1/messages/2/download", headers={"Authorization":f"Bearer {token}"})
 		assert download.status_code == 200
 		assert download.content == b"demo"
 
@@ -114,11 +116,20 @@ def test_download_with_r2_storage_proxy(monkeypatch):
 	message_service = AsyncMock()
 
 	class R2FileRepo:
-		async def get_file_response_data(self, file_path: str):
+		async def get_file_stream(self, file_path: str):
 			assert file_path == "1/demo.txt"
-			return b"demo", "text/plain"
 
-	file_service.get_file_path_for_user.return_value = "1/demo.txt"
+			class Body:
+				def iter_chunks(self, chunk_size: int):
+					yield b"demo"
+
+			return {"Body":Body(), "ContentType":"text/plain"}
+
+	file_service.get_file_for_user.return_value = type(
+		"FileMessage",
+		(),
+		{"type": "file", "file_path": "1/demo.txt", "file_name": "demo.txt", "user_id": 1},
+	)()
 
 	app = FastAPI()
 	app.include_router(message_router, prefix="/api/v1")
@@ -128,7 +139,8 @@ def test_download_with_r2_storage_proxy(monkeypatch):
 	app.dependency_overrides[get_file_repo] = lambda: R2FileRepo()
 	client = TestClient(app)
 
-	download = client.get("/api/v1/messages/2/download")
+	token = security.create_access_token(1)
+	download = client.get(f"/api/v1/messages/2/download?token={token}")
 
 	assert download.status_code == 200
 	assert download.content == b"demo"
