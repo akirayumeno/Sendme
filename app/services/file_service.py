@@ -12,6 +12,7 @@ from app.services.exceptions import QuotaExceededError, FilePathNotFoundError, M
 from app.storage.exceptions import CapacityExceededError
 from app.storage.exceptions import MessageNotFoundError as RepoMessageNotFoundError
 from app.storage.file_repo import FileRepo
+from app.storage.r2_repo import R2FileRepo
 from app.storage.redis_repo import RedisRepo
 from app.storage.sqlalchemy_repo import MessageRepository, UserRepository
 
@@ -28,7 +29,9 @@ class FileService:
 			message_repo: MessageRepository,
 			user_repo: UserRepository,
 			redis_repo: RedisRepo,
+			r2_repo: R2FileRepo,
 	):
+		self.r2_repo = r2_repo
 		self.file_repo = file_repo
 		self.message_repo = message_repo
 		self.user_repo = user_repo
@@ -118,7 +121,7 @@ class FileService:
 		final_filename = f"{user_id}/{uuid.uuid4().hex}{extension}"
 		mime_type = file_type or "application/octet-stream"
 		message_type = MessageType.image if mime_type.startswith("image/") else MessageType.file
-		upload_url = await self.file_repo.get_presigned_upload_url(final_filename, mime_type)
+		upload_url = await self.r2_repo.get_presigned_upload_url(final_filename, mime_type)
 
 		return {
 			"upload_url":upload_url,
@@ -255,7 +258,7 @@ class FileService:
 	async def get_file_for_user(self, message_id: int, user_id: int) -> Message:
 		try:
 			message = await self.message_repo.get_by_message_id(message_id)
-		except RepoMessageNotFoundError as e:
+		except RepoMessageNotFoundError:
 			raise MessageNotFoundError("Message not found.")
 		if message.user_id != user_id:
 			raise MessagePermissionError("Message Permission denied.")
