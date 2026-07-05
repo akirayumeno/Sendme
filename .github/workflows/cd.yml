@@ -2,7 +2,7 @@ name: CD
 
 on:
   push:
-    branches: ["main", "master"]
+    branches: [ "main", "master" ]
   workflow_dispatch:
 
 jobs:
@@ -58,4 +58,4 @@ jobs:
             echo "DEPLOY_WEBHOOK_URL is empty; skipping deploy trigger."
             exit 0
           fi
-          curl -X POST "$DEPLOY_WEBHOOK_URL"
+          curl -X POST "${DEPLOY_WEBHOOK_URL}?clear_cache=true"
