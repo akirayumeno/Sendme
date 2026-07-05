@@ -107,3 +107,29 @@ def test_upload_download_view(monkeypatch):
 
 		view = client.get("/api/v1/messages/2/view")
 		assert view.status_code == 415
+
+
+def test_download_with_presigned_storage(monkeypatch):
+	file_service = AsyncMock()
+	message_service = AsyncMock()
+
+	class PresignedFileRepo:
+		async def get_presigned_url(self, file_path: str, as_download: bool) -> str:
+			assert file_path == "1/demo.txt"
+			assert as_download is True
+			return "https://r2.example.com/signed-download"
+
+	file_service.get_file_path_for_user.return_value = "1/demo.txt"
+
+	app = FastAPI()
+	app.include_router(message_router, prefix="/api/v1")
+	app.dependency_overrides[get_current_user_id] = lambda: 1
+	app.dependency_overrides[get_message_service] = lambda: message_service
+	app.dependency_overrides[get_file_service] = lambda: file_service
+	app.dependency_overrides[get_file_repo] = lambda: PresignedFileRepo()
+	client = TestClient(app)
+
+	download = client.get("/api/v1/messages/2/download", follow_redirects = False)
+
+	assert download.status_code == 302
+	assert download.headers["location"] == "https://r2.example.com/signed-download"

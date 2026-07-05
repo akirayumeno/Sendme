@@ -26,6 +26,7 @@ class RedisRepo:
 	def __init__(self, redis_url: str):
 		self.client = aioredis.from_url(redis_url, decode_responses = True)
 		self._ttl_index_key = "msg_ttl:index"
+		self._storage_used_key = "storage:used_bytes"
 
 	# --- Message TTL ---
 	async def set_message_ttl(self, message_id: int, expire_sec: int = settings.MESSAGE_TTL_SECONDS):
@@ -53,6 +54,21 @@ class RedisRepo:
 			num = limit,
 		)
 		return [int(v) for v in raw_ids]
+
+	# --- Storage capacity ---
+	async def get_storage_used_bytes(self) -> int:
+		used = await self.client.get(self._storage_used_key)
+		return int(used or 0)
+
+	async def incr_storage_used_bytes(self, size_bytes: int) -> int:
+		return await self.client.incrby(self._storage_used_key, size_bytes)
+
+	async def decr_storage_used_bytes(self, size_bytes: int) -> int:
+		used = await self.client.decrby(self._storage_used_key, size_bytes)
+		if used < 0:
+			await self.client.set(self._storage_used_key, 0)
+			return 0
+		return used
 
 	# --- Auth (OTP) ---
 	async def set_otp(self, mail: str, otp_code: str, ex: int = settings.OTP_EXPIRATION_SECONDS):

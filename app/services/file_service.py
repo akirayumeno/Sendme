@@ -8,6 +8,7 @@ from app.core.settings import settings
 from app.schemas.schemas import FileMessageCreate
 from app.services.exceptions import QuotaExceededError, FilePathNotFoundError, MessageNotFoundError, \
 	MessagePermissionError, FileUploadAbortedError
+from app.storage.exceptions import CapacityExceededError
 from app.storage.exceptions import MessageNotFoundError as RepoMessageNotFoundError
 from app.storage.file_repo import FileRepo
 from app.storage.redis_repo import RedisRepo
@@ -45,8 +46,14 @@ class FileService:
 		# If the connection is aborted, FileRepo handles the cleanup internally
 		try:
 			size_bytes = await self.file_repo.save(file.file, temp_filename, is_temp = True)
+		except CapacityExceededError as e:
+			raise QuotaExceededError(f"File too large. Max allowed is {settings.MAX_FILE_SIZE_BYTES} bytes.") from e
 		except Exception as e:
 			raise FileUploadAbortedError() from e
+
+		if size_bytes > settings.MAX_FILE_SIZE_BYTES:
+			await self.file_repo.delete_temp(temp_filename)
+			raise QuotaExceededError(f"File too large. Max allowed is {settings.MAX_FILE_SIZE_BYTES} bytes.")
 
 		return {
 			"temp_filename":temp_filename,
@@ -83,6 +90,7 @@ class FileService:
 
 		# 5. Calculate capacity
 		await self.user_repo.update_used_capacity(schema.user_id, file_size)
+		await self.redis_repo.incr_storage_used_bytes(file_size)
 
 		return uploaded_messages
 
@@ -118,6 +126,7 @@ class FileService:
 		else:
 			raise FilePathNotFoundError("File was not found in the message.")
 		await self.redis_repo.delete_timer(message_id)
+		await self.redis_repo.decr_storage_used_bytes(released_bytes)
 		return used_quota_bytes
 
 	async def delete_file_by_system(self, message_id: int) -> bool:
@@ -127,6 +136,7 @@ class FileService:
 		if message.file_path:
 			await self.file_repo.delete(message.file_path, is_temp = False)
 		await self.redis_repo.delete_timer(message_id)
+		await self.redis_repo.decr_storage_used_bytes(released_bytes)
 		return True
 
 	async def _check_quota(self, user_id: int, temp_filename: str, file_size: int):
@@ -142,6 +152,14 @@ class FileService:
 			await self.file_repo.delete_temp(temp_filename)
 			raise QuotaExceededError(
 				f"Quota exceeded. Available: {settings.DEFAULT_MAX_CAPACITY_BYTES - current_used} bytes, "
+				f"Requested: {file_size} bytes."
+			)
+
+		global_used = await self.redis_repo.get_storage_used_bytes()
+		if global_used + file_size > settings.GLOBAL_MAX_STORAGE_BYTES:
+			await self.file_repo.delete_temp(temp_filename)
+			raise QuotaExceededError(
+				f"Service storage limit exceeded. Available: {settings.GLOBAL_MAX_STORAGE_BYTES - global_used} bytes, "
 				f"Requested: {file_size} bytes."
 			)
 

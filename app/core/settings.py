@@ -12,12 +12,12 @@ class Settings(BaseSettings):
 	UPLOAD_DIR: str = Field(default = "uploads", description = "Local upload directory")
 	STORAGE_BACKEND: str = Field(default = "local", description = "Storage backend: local or r2")
 
-	# --- R2 / S3-compatible storage ---
-	R2_ENDPOINT: str = Field(default = "", description = "R2 endpoint URL")
-	R2_BUCKET: str = Field(default = "", description = "R2 bucket name")
-	R2_ACCESS_KEY_ID: str = Field(default = "", description = "R2 access key id")
-	R2_SECRET_ACCESS_KEY: str = Field(default = "", description = "R2 secret access key")
-	R2_SIGNED_URL_EXPIRE_SECONDS: int = Field(default = 3600, description = "Presigned URL expiry")
+	# --- Cloudflare R2 / S3-compatible storage ---
+	R2_ENDPOINT: str = ""
+	R2_BUCKET: str = ""
+	R2_ACCESS_KEY_ID: str = ""
+	R2_SECRET_ACCESS_KEY: str = ""
+	R2_SIGNED_URL_EXPIRE_SECONDS: int = 3600
 
 	# --- SMTP ---
 	RESEND_API_KEY: str = "re_your_default_key_for_test"
@@ -35,8 +35,10 @@ class Settings(BaseSettings):
 	REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
 	# --- Service Capacity Configuration ---
-	# Define the default maximum capacity limit (1G)
-	DEFAULT_MAX_CAPACITY_BYTES: int = 1024 * 1024 * 1024
+	# Default per-user storage capacity limit (100MB).
+	DEFAULT_MAX_CAPACITY_BYTES: int = 100 * 1024 * 1024
+	MAX_FILE_SIZE_BYTES: int = 20 * 1024 * 1024
+	GLOBAL_MAX_STORAGE_BYTES: int = 9 * 1024 * 1024 * 1024
 
 	# --- Auth (OTP) ---
 	OTP_EXPIRATION_SECONDS: int = 300

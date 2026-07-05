@@ -44,6 +44,7 @@ async def _file_response(file_repo: FileRepo, relative_path: str, as_download: b
 	if hasattr(file_repo, "get_presigned_url"):
 		url = await file_repo.get_presigned_url(relative_path, as_download = as_download)
 		return RedirectResponse(url = url, status_code = status.HTTP_302_FOUND)
+
 	full_path = _resolve_file_path(file_repo, relative_path)
 	if not full_path.exists():
 		raise HTTPException(status_code = 404, detail = "File not found.")
@@ -134,7 +135,7 @@ async def download_file(
 		message_id: int,
 		user_id: int = Depends(get_current_user_id),
 		file_repo: FileRepo = Depends(get_file_repo),
-		service: FileService = Depends(get_file_service),
+	service: FileService = Depends(get_file_service),
 ):
 	"""Download file by message id with owner permission check."""
 	file_path = await service.get_file_path_for_user(message_id = message_id, user_id = user_id)

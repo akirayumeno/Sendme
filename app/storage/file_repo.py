@@ -38,8 +38,8 @@ class FileRepo:
 					async for chunk in file_stream:
 						if not chunk:
 							continue
-						if bytes_written + len(chunk) > settings.DEFAULT_MAX_CAPACITY_BYTES:
-							raise CapacityExceededError("Disk or User limit reached during stream.")
+						if bytes_written + len(chunk) > settings.MAX_FILE_SIZE_BYTES:
+							raise CapacityExceededError("File size limit reached during stream.")
 						await f.write(chunk)
 						bytes_written += len(chunk)
 				# async read() style stream
@@ -48,8 +48,8 @@ class FileRepo:
 						chunk = await file_stream.read(chunk_size)
 						if not chunk:
 							break
-						if bytes_written + len(chunk) > settings.DEFAULT_MAX_CAPACITY_BYTES:
-							raise CapacityExceededError("Disk or User limit reached during stream.")
+						if bytes_written + len(chunk) > settings.MAX_FILE_SIZE_BYTES:
+							raise CapacityExceededError("File size limit reached during stream.")
 						await f.write(chunk)
 						bytes_written += len(chunk)
 				# sync read() style stream (e.g. SpooledTemporaryFile)
@@ -58,13 +58,17 @@ class FileRepo:
 						chunk = await asyncio.to_thread(file_stream.read, chunk_size)
 						if not chunk:
 							break
-						if bytes_written + len(chunk) > settings.DEFAULT_MAX_CAPACITY_BYTES:
-							raise CapacityExceededError("Disk or User limit reached during stream.")
+						if bytes_written + len(chunk) > settings.MAX_FILE_SIZE_BYTES:
+							raise CapacityExceededError("File size limit reached during stream.")
 						await f.write(chunk)
 						bytes_written += len(chunk)
 				else:
 					raise TypeError(f"Unsupported file stream type: {type(file_stream)!r}")
 			return bytes_written
+		except CapacityExceededError:
+			if await aios.path.exists(full_path):
+				await aios.remove(full_path)
+			raise
 		except Exception as e:
 			if await aios.path.exists(full_path):
 				await aios.remove(full_path)
