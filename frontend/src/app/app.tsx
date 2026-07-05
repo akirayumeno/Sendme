@@ -37,6 +37,7 @@ const SendMeResponsive = () => {
     const shouldStickToBottomRef = useRef<boolean>(true);
     const preserveDistanceFromBottomRef = useRef<number | null>(null);
     const deletingMessageIdRef = useRef<string | null>(null);
+    const selfUpdatedMessageIdsRef = useRef<Set<string>>(new Set());
     const scrollToBottom = (behavior: ScrollBehavior = 'auto') => {
         messagesEndRef.current?.scrollIntoView({behavior, block: 'end'});
     };
@@ -218,6 +219,13 @@ const SendMeResponsive = () => {
                 ) {
                     deletingMessageIdRef.current = null;
                     return;
+                }
+                if (payload?.event === 'message.updated') {
+                    const messageId = String(payload?.message_id);
+                    if (selfUpdatedMessageIdsRef.current.has(messageId)) {
+                        selfUpdatedMessageIdsRef.current.delete(messageId);
+                        return;
+                    }
                 }
             } catch {
                 // Non-JSON payload; keep fallback behavior.
@@ -450,8 +458,7 @@ const SendMeResponsive = () => {
             }
         }
 
-        // Sync once after batch upload finishes, avoid per-file UI flicker.
-        await fetchMessages();
+        // WebSocket or polling will reconcile remote changes; local upload responses already update this client.
     };
 
     // Upload a single file with progress tracking and result reconciliation.
@@ -487,13 +494,15 @@ const SendMeResponsive = () => {
                 status: mapServerStatus(response.data.status),
                 progress: 100,
                 created_at: formatTimestamp(new Date(response.data.created_at)),
+                imageUrl: message.type === 'image' ? tempImageUrl : undefined,
             };
+            selfUpdatedMessageIdsRef.current.add(savedMessage.id);
 
             setMessages(prev => prev.map(msg =>
                 msg.id === message.id ? savedMessage : msg
             ));
 
-            if (tempImageUrl && tempImageUrl.startsWith('blob:')) {
+            if (tempImageUrl && tempImageUrl.startsWith('blob:') && message.type !== 'image') {
                 URL.revokeObjectURL(tempImageUrl);
             }
         } catch (error) {

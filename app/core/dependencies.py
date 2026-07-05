@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,6 +39,20 @@ def get_redis_repo() -> RedisRepo:
 
 def get_file_repo() -> FileRepo:
 	if settings.STORAGE_BACKEND.lower() == "r2":
+		missing = [
+			name for name, value in {
+				"R2_ENDPOINT":settings.R2_ENDPOINT,
+				"R2_BUCKET":settings.R2_BUCKET,
+				"R2_ACCESS_KEY_ID":settings.R2_ACCESS_KEY_ID,
+				"R2_SECRET_ACCESS_KEY":settings.R2_SECRET_ACCESS_KEY,
+			}.items()
+			if not value
+		]
+		if missing:
+			raise HTTPException(
+				status_code = 500,
+				detail = f"R2 storage is not configured. Missing: {', '.join(missing)}",
+			)
 		return R2FileRepo(
 			upload_dir = Path(settings.UPLOAD_DIR),
 			endpoint = settings.R2_ENDPOINT,
