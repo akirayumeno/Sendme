@@ -11,6 +11,7 @@ class Settings(BaseSettings):
 	REDIS_URL: str = Field(default = "redis://localhost:6379", description = "Redis connection URL")
 	UPLOAD_DIR: str = Field(default = "uploads", description = "Local upload directory")
 	STORAGE_BACKEND: str = Field(default = "local", description = "Storage backend: local or r2")
+	APP_VERSION: str = "1.0.0"
 
 	# --- Cloudflare R2 / S3-compatible storage ---
 	R2_ENDPOINT: str = ""

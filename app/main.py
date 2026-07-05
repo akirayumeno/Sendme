@@ -76,7 +76,7 @@ async def lifespan(_: FastAPI):
 		pass
 
 
-app = FastAPI(title = "SendMe API", version = "1.0.0", lifespan = lifespan)
+app = FastAPI(title = "SendMe API", version = settings.APP_VERSION, lifespan = lifespan)
 register_exception_handlers(app)
 
 app.include_router(auth_router, prefix = "/api/v1")
