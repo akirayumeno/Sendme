@@ -77,8 +77,12 @@ def get_file_service(
 		message_repo: MessageRepository = Depends(get_message_repository),
 		user_repo: UserRepository = Depends(get_user_repository),
 		redis_repo: RedisRepo = Depends(get_redis_repo),
+		r2_repo: R2FileRepo = Depends(get_file_repo)
 ) -> FileService:
-	return FileService(file_repo = file_repo, message_repo = message_repo, user_repo = user_repo, redis_repo = redis_repo)
+	return FileService(
+		file_repo = file_repo, message_repo = message_repo, user_repo = user_repo, redis_repo = redis_repo,
+		r2_repo = r2_repo
+		)
 
 
 def get_account_service(
