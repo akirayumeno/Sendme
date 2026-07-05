@@ -38,7 +38,7 @@ def get_redis_repo() -> RedisRepo:
 	return RedisRepo(settings.REDIS_URL)
 
 
-def get_file_repo() -> FileRepo:
+def get_file_repo() -> R2FileRepo | FileRepo:
 	if settings.STORAGE_BACKEND.lower() == "r2":
 		missing = [
 			name for name, value in {
@@ -82,7 +82,7 @@ def get_file_service(
 	return FileService(
 		file_repo = file_repo, message_repo = message_repo, user_repo = user_repo, redis_repo = redis_repo,
 		r2_repo = r2_repo
-		)
+	)
 
 
 def get_account_service(
