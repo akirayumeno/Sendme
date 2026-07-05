@@ -33,7 +33,7 @@ async def _expired_message_cleanup_loop(stop_event: asyncio.Event):
 				r2_repo = R2FileRepo(
 					upload_dir = Path(settings.UPLOAD_DIR), endpoint = settings.R2_ENDPOINT,
 					bucket = settings.R2_BUCKET, access_key_id = settings.R2_ACCESS_KEY_ID,
-					secret_access_key = settings.R2_SECRET_KEY
+					secret_access_key = settings.R2_SECRET_ACCESS_KEY
 				)
 				file_service = FileService(
 					file_repo = file_repo,
