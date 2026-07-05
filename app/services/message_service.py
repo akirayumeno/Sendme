@@ -51,10 +51,8 @@ class MessageService:
 		if msg.user_id != user_id:
 			raise MessagePermissionError("Message Permission denied.")
 
-		# when it's file
-		if msg.type == MessageType.file:
+		if self._has_physical_file(msg):
 			await self.file_service.delete_existing_file(message_id, user_id)
-		# when it's text
 		else:
 			await self.message_repo.delete_message(message_id)
 			await self.redis_repo.delete_timer(message_id)
@@ -71,10 +69,14 @@ class MessageService:
 				await self.redis_repo.delete_timer(message_id)
 				continue
 
-			if msg.type == MessageType.file:
+			if self._has_physical_file(msg):
 				await self.file_service.delete_file_by_system(message_id)
 			else:
 				await self.message_repo.delete_message(message_id)
 				await self.redis_repo.delete_timer(message_id)
 			cleaned += 1
 		return cleaned
+
+	def _has_physical_file(self, msg: Message) -> bool:
+		file_path = getattr(msg, "file_path", None)
+		return (isinstance(file_path, str) and bool(file_path)) or msg.type in (MessageType.file, MessageType.image)

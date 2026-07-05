@@ -118,7 +118,7 @@ class FileService:
 		# 2. Remove the metadata record
 		released_bytes = await self.message_repo.delete_message(message_id)
 		# 3. Refresh capacity
-		used_quota_bytes = await self.user_repo.update_used_capacity(user_id, released_bytes)
+		used_quota_bytes = await self.user_repo.update_used_capacity(user_id, -released_bytes)
 
 		# 4. Physically remove the file from permanent storage
 		if message.file_path:

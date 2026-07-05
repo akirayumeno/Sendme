@@ -67,11 +67,25 @@ class TestMessageService:
 		mock_msg = MagicMock()
 		mock_msg.user_id = 1
 		mock_msg.type = MessageType.file
+		mock_msg.file_path = "1/document.docx"
 		message_repo.get_by_message_id.return_value = mock_msg
 
 		await service.delete_message(message_id = 200, user_id = 1)
 
 		file_service.delete_existing_file.assert_called_once_with(200, 1)
+
+	async def test_delete_image_message_success(self, mock_repos):
+		service, message_repo, _, file_service, _ = mock_repos
+
+		mock_msg = MagicMock()
+		mock_msg.user_id = 1
+		mock_msg.type = MessageType.image
+		mock_msg.file_path = "1/image.png"
+		message_repo.get_by_message_id.return_value = mock_msg
+
+		await service.delete_message(message_id = 201, user_id = 1)
+
+		file_service.delete_existing_file.assert_called_once_with(201, 1)
 
 	async def test_delete_message_permission_denied(self, mock_repos):
 		service, message_repo, _, _, _ = mock_repos

@@ -151,6 +151,7 @@ class TestFileService:
 		used = await service.delete_existing_file(message_id = 10, user_id = 1)
 
 		assert used == 150
+		user_repo.update_used_capacity.assert_awaited_once_with(1, -50)
 		file_repo.delete.assert_awaited_once_with("1/a.txt", is_temp = False)
 		redis_repo.delete_timer.assert_awaited_once_with(10)
 		redis_repo.decr_storage_used_bytes.assert_awaited_once_with(50)
