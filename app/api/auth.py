@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 
-from app.core.dependencies import get_auth_service
+from app.core.dependencies import get_account_service, get_auth_service, get_current_user_id
 from app.schemas.schemas import RegisterWithOtpSchema, RequestOtpSchema
+from app.services.account_service import AccountService
 from app.services.auth_service import AuthService
 from app.services.exceptions import EmailDeliveryError, OtpInvalidError, OtpLockedError, RateLimitError
 from app.storage.exceptions import UserConstraintError
@@ -66,3 +67,11 @@ async def refresh(
 		return await auth_service.refresh_access_token(payload.refresh_token)
 	except ValueError as exc:
 		raise HTTPException(status_code = 401, detail = str(exc)) from exc
+
+
+@router.delete("/account")
+async def delete_account(
+		user_id: int = Depends(get_current_user_id),
+		account_service: AccountService = Depends(get_account_service),
+):
+	return await account_service.delete_account(user_id)

@@ -75,6 +75,15 @@ class UserRepository(AbstractUserRepository):
 			await self.db.rollback()
 			raise RepositoryError(f"Error updating user {current_uid}.") from e
 
+	async def delete_user(self, user_id: int) -> bool:
+		try:
+			await self.db.execute(delete(User).where(User.id == user_id))
+			await self.db.commit()
+			return True
+		except Exception as e:
+			await self.db.rollback()
+			raise RepositoryError(f"Error deleting user {user_id}.") from e
+
 	async def get_user_by_email(self, email: str):
 		result = await self.db.execute(select(User).filter(User.email == email))
 		return result.scalars().first()
@@ -139,6 +148,11 @@ class MessageRepository(AbstractMessageRepository):
 			.limit(limit)
 			.offset(offset)
 		)
+		result = await self.db.execute(stmt)
+		return result.scalars().all()
+
+	async def get_all_by_user(self, user_id: int) -> Sequence['Message']:
+		stmt = select(Message).filter(Message.user_id == user_id)
 		result = await self.db.execute(stmt)
 		return result.scalars().all()
 

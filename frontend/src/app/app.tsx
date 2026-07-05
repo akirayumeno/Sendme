@@ -316,6 +316,25 @@ const SendMeResponsive = () => {
         setAuthError(null);
     };
 
+    // Permanently delete the current account and all related messages/files.
+    const handleDeleteAccount = async () => {
+        const confirmed = window.confirm(
+            'Delete this account permanently? This will remove all messages and files.'
+        );
+        if (!confirmed) return;
+
+        try {
+            await axios.delete(`${API_BASE_URL}/auth/account`, {
+                headers: getTokenHeader(),
+            });
+            handleLogout();
+        } catch (error) {
+            console.error('Failed to delete account:', error);
+            const message = getErrorMessage(error, 'Failed to delete account.');
+            window.alert(message);
+        }
+    };
+
     // Login flow: exchange credentials for JWT then bootstrap messages.
     const handleLoginAttempt = async (username: string, password: string) => {
         setAuthError(null);
@@ -614,6 +633,7 @@ const SendMeResponsive = () => {
                     messageCount={messages.filter(m => m.status === 'success').length}
                     themeConfig={themeConfig}
                     onLogout={handleLogout}
+                    onDeleteAccount={handleDeleteAccount}
                 />
 
                 {isLoading && messages.length === 0 ? (

@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.auth import router as auth_router
-from app.core.dependencies import get_auth_service
+from app.core.dependencies import get_account_service, get_auth_service, get_current_user_id
 from app.services.exceptions import OtpInvalidError, RateLimitError
 
 
@@ -79,3 +79,21 @@ def test_refresh_success():
 
 	assert resp.status_code == 200
 	assert resp.json()["access_token"] == "new-token"
+
+
+def test_delete_account_success():
+	auth_service = AsyncMock()
+	account_service = AsyncMock()
+	account_service.delete_account.return_value = {"status":"success", "deleted_messages":2}
+	app = FastAPI()
+	app.include_router(auth_router, prefix="/api/v1")
+	app.dependency_overrides[get_auth_service] = lambda: auth_service
+	app.dependency_overrides[get_account_service] = lambda: account_service
+	app.dependency_overrides[get_current_user_id] = lambda: 1
+	client = TestClient(app)
+
+	resp = client.delete("/api/v1/auth/account")
+
+	assert resp.status_code == 200
+	assert resp.json() == {"status":"success", "deleted_messages":2}
+	account_service.delete_account.assert_awaited_once_with(1)

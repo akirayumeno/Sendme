@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.core.exceptions import CREDENTIALS_EXCEPTION
 from app.core.orm_models import User
 from app.core.settings import settings
+from app.services.account_service import AccountService
 from app.services.auth_service import AuthService
 from app.services.file_service import FileService
 from app.services.message_service import MessageService
@@ -78,6 +79,22 @@ def get_file_service(
 		redis_repo: RedisRepo = Depends(get_redis_repo),
 ) -> FileService:
 	return FileService(file_repo = file_repo, message_repo = message_repo, user_repo = user_repo, redis_repo = redis_repo)
+
+
+def get_account_service(
+		user_repo: UserRepository = Depends(get_user_repository),
+		message_repo: MessageRepository = Depends(get_message_repository),
+		token_repo: RefreshTokenRepository = Depends(get_refresh_token_repository),
+		file_service: FileService = Depends(get_file_service),
+		redis_repo: RedisRepo = Depends(get_redis_repo),
+) -> AccountService:
+	return AccountService(
+		user_repo = user_repo,
+		message_repo = message_repo,
+		token_repo = token_repo,
+		file_service = file_service,
+		redis_repo = redis_repo,
+	)
 
 
 def get_message_service(

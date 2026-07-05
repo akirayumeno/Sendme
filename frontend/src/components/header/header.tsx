@@ -1,14 +1,15 @@
 // Header Component
-import {LogOut, Moon, Send, Sun} from "lucide-react";
+import {LogOut, Moon, Send, Sun, UserX} from "lucide-react";
 import type {ThemeConfig} from "../../types/type";
 
 interface HeaderProps {
     messageCount: number;
     themeConfig: ThemeConfig;
     onLogout: () => void;
+    onDeleteAccount: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({messageCount, themeConfig, onLogout}) => {
+const Header: React.FC<HeaderProps> = ({messageCount, themeConfig, onLogout, onDeleteAccount}) => {
     // Determine if current theme is dark by checking themeClasses
     const isDark = themeConfig.themeClasses.includes('dark') || themeConfig.themeClasses.includes('bg-gray-900');
 
@@ -29,6 +30,19 @@ const Header: React.FC<HeaderProps> = ({messageCount, themeConfig, onLogout}) =>
                 <div className="text-sm opacity-70">
                     {messageCount} messages
                 </div>
+
+                {/* Delete account button */}
+                <button
+                    onClick={onDeleteAccount}
+                    className={`focus:outline-none p-2 rounded-lg transition-colors ${
+                        isDark ? 'bg-red-950/60 text-red-300 hover:bg-red-900' : 'bg-red-50 text-red-600 hover:bg-red-100'
+                    }`
+                    }
+                    aria-label="Delete account"
+                    title="Delete account"
+                >
+                    <UserX className="w-5 h-5"/>
+                </button>
 
                 {/* Log out button */}
                 <button
