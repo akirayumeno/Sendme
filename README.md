@@ -98,6 +98,7 @@ Main `.env` keys:
 - `RESEND_FROM_EMAIL`
 - `DEFAULT_MAX_CAPACITY_BYTES`
 - `MAX_FILE_SIZE_BYTES`
+- `VITE_MAX_FILE_SIZE_BYTES` (frontend build-time limit)
 - `GLOBAL_MAX_STORAGE_BYTES`
 - `STORAGE_BACKEND` (`local` or `r2`)
 - `R2_ENDPOINT`
