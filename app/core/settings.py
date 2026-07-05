@@ -10,6 +10,14 @@ class Settings(BaseSettings):
 	)
 	REDIS_URL: str = Field(default = "redis://localhost:6379", description = "Redis connection URL")
 	UPLOAD_DIR: str = Field(default = "uploads", description = "Local upload directory")
+	STORAGE_BACKEND: str = Field(default = "local", description = "Storage backend: local or r2")
+
+	# --- R2 / S3-compatible storage ---
+	R2_ENDPOINT: str = Field(default = "", description = "R2 endpoint URL")
+	R2_BUCKET: str = Field(default = "", description = "R2 bucket name")
+	R2_ACCESS_KEY_ID: str = Field(default = "", description = "R2 access key id")
+	R2_SECRET_ACCESS_KEY: str = Field(default = "", description = "R2 secret access key")
+	R2_SIGNED_URL_EXPIRE_SECONDS: int = Field(default = 3600, description = "Presigned URL expiry")
 
 	# --- SMTP ---
 	RESEND_API_KEY: str = "re_your_default_key_for_test"

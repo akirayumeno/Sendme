@@ -31,6 +31,7 @@ This file collects implementation and engineering details. The main `README.md` 
 - `db`: PostgreSQL for users/messages
 - `redis`: OTP state + message TTL index
 - `uploads/`: local file storage
+- Optional: R2 (S3-compatible) object storage for persistent uploads
 
 Backend layers:
 

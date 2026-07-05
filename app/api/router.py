@@ -3,7 +3,7 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from starlette import status
 
 from app.core.dependencies import get_current_user_id, get_file_repo, get_file_service, get_message_service
@@ -39,8 +39,11 @@ def _resolve_file_path(file_repo: FileRepo, relative_path: str) -> Path:
 	return full_path
 
 
-def _file_response(file_repo: FileRepo, relative_path: str, as_download: bool) -> FileResponse:
+async def _file_response(file_repo: FileRepo, relative_path: str, as_download: bool):
 	"""Build a file response with optional download filename behavior."""
+	if hasattr(file_repo, "get_presigned_url"):
+		url = await file_repo.get_presigned_url(relative_path, as_download = as_download)
+		return RedirectResponse(url = url, status_code = status.HTTP_302_FOUND)
 	full_path = _resolve_file_path(file_repo, relative_path)
 	if not full_path.exists():
 		raise HTTPException(status_code = 404, detail = "File not found.")
@@ -135,7 +138,7 @@ async def download_file(
 ):
 	"""Download file by message id with owner permission check."""
 	file_path = await service.get_file_path_for_user(message_id = message_id, user_id = user_id)
-	return _file_response(file_repo, file_path, as_download = True)
+	return await _file_response(file_repo, file_path, as_download = True)
 
 
 @router.get("/{message_id}/view")
@@ -157,11 +160,7 @@ async def view_file(
 	if not message.file_path:
 		raise HTTPException(status_code = 404, detail = "File not found.")
 
-	full_path = (file_repo.upload_dir / message.file_path).resolve()
-	if not full_path.exists():
-		raise HTTPException(status_code = 404, detail = "File not found.")
-
-	return FileResponse(path = str(full_path))
+	return await _file_response(file_repo, message.file_path, as_download = False)
 
 
 @router.delete("/{message_id}")
