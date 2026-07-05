@@ -15,6 +15,7 @@ from app.core.settings import settings
 from app.services.file_service import FileService
 from app.services.message_service import MessageService
 from app.storage.file_repo import FileRepo
+from app.storage.r2_repo import R2FileRepo
 from app.storage.redis_repo import RedisRepo
 from app.storage.sqlalchemy_repo import MessageRepository, UserRepository
 
@@ -29,11 +30,17 @@ async def _expired_message_cleanup_loop(stop_event: asyncio.Event):
 				user_repo = UserRepository(db)
 				redis_repo = RedisRepo(settings.REDIS_URL)
 				file_repo = FileRepo(upload_dir = Path(settings.UPLOAD_DIR))
+				r2_repo = R2FileRepo(
+					upload_dir = Path(settings.UPLOAD_DIR), endpoint = settings.R2_ENDPOINT,
+					bucket = settings.R2_BUCKET, access_key_id = settings.R2_ACCESS_KEY_ID,
+					secret_access_key = settings.R2_SECRET_KEY
+				)
 				file_service = FileService(
 					file_repo = file_repo,
 					message_repo = message_repo,
 					user_repo = user_repo,
 					redis_repo = redis_repo,
+					r2_repo = r2_repo
 				)
 				message_service = MessageService(
 					message_repo = message_repo,
