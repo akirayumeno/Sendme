@@ -8,7 +8,6 @@ from starlette.datastructures import Headers
 
 from app.core.enums import DeviceType, MessageType
 from app.schemas.schemas import FileMessageCreate
-from app.storage.exceptions import MessageNotFoundError as RepoMessageNotFoundError
 from app.services.exceptions import (
 	FilePathNotFoundError,
 	FileUploadAbortedError,
@@ -17,6 +16,7 @@ from app.services.exceptions import (
 	QuotaExceededError,
 )
 from app.services.file_service import FileService
+from app.storage.exceptions import MessageNotFoundError as RepoMessageNotFoundError
 
 
 @pytest.fixture
@@ -27,7 +27,11 @@ def file_service(tmp_path):
 	user_repo = AsyncMock()
 	redis_repo = AsyncMock()
 	redis_repo.get_storage_used_bytes.return_value = 0
-	service = FileService(file_repo = file_repo, message_repo = message_repo, user_repo = user_repo, redis_repo = redis_repo)
+	r2_repo = AsyncMock()
+	service = FileService(
+		file_repo = file_repo, message_repo = message_repo, user_repo = user_repo, redis_repo = redis_repo
+		, r2_repo = r2_repo
+	)
 	return service, file_repo, message_repo, user_repo, redis_repo
 
 
@@ -85,10 +89,10 @@ class TestFileService:
 			user_id = 1,
 			device = DeviceType.desktop,
 			type = MessageType.file,
-			file_name = "a.txt",
-			file_size = 10,
-			file_type = "text/plain",
-			file_path = "1/a.txt",
+			fileName = "1231231.pdf",
+			fileSize = 123,
+			fileType = "pdf",
+			filePath = "cloudflare.r2.com"
 		)
 
 		with pytest.raises(FilePathNotFoundError):
@@ -104,10 +108,10 @@ class TestFileService:
 			user_id = 1,
 			device = DeviceType.desktop,
 			type = MessageType.file,
-			file_name = "a.txt",
-			file_size = 3,
-			file_type = "text/plain",
-			file_path = "1/a.txt",
+			fileName = "1231231.pdf",
+			fileSize = 123,
+			fileType = "pdf",
+			filePath = "cloudflare.r2.com"
 		)
 
 		message_repo.create_message.return_value = SimpleNamespace(id = 1)
@@ -151,10 +155,10 @@ class TestFileService:
 			user_id = 1,
 			device = DeviceType.desktop,
 			type = MessageType.file,
-			file_name = "a.txt",
-			file_size = 3,
-			file_type = "text/plain",
-			file_path = "1/a.txt",
+			fileName = "1231231.pdf",
+			fileSize = 123,
+			fileType = "pdf",
+			filePath = "cloudflare.r2.com"
 		)
 
 		result = await service.complete_direct_upload(schema)
@@ -174,10 +178,10 @@ class TestFileService:
 			user_id = 1,
 			device = DeviceType.desktop,
 			type = MessageType.file,
-			file_name = "a.txt",
-			file_size = 3,
-			file_type = "text/plain",
-			file_path = "1/a.txt",
+			fileName = "1231231.pdf",
+			fileSize = 123,
+			fileType = "pdf",
+			filePath = "cloudflare.r2.com"
 		)
 
 		with pytest.raises(FileUploadAbortedError):
