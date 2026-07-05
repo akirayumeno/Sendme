@@ -119,16 +119,16 @@ class TestFileService:
 		result = await service.finalize_file_message(schema = schema, temp_filename = temp_filename, file_size = 3)
 
 		assert result.id == 1
-		file_repo.move_to_final.assert_awaited_once_with(temp_filename, "1/a.txt")
+		file_repo.move_to_final.assert_awaited_once_with(temp_filename, "cloudflare.r2.com")
 		user_repo.update_used_capacity.assert_awaited_once_with(1, 3)
 		redis_repo.set_message_ttl.assert_awaited_once_with(1)
 		redis_repo.incr_storage_used_bytes.assert_awaited_once_with(3)
 
 	async def test_create_direct_upload_success(self, file_service):
-		service, file_repo, _, user_repo, redis_repo = file_service
+		service, file_repo, r2_repo, user_repo, redis_repo = file_service
 		user_repo.get_used_capacity.return_value = 0
 		redis_repo.get_storage_used_bytes.return_value = 0
-		file_repo.get_presigned_upload_url.return_value = "https://r2.example.com/upload"
+		r2_repo.get_presigned_upload_url.return_value = "https://r2.example.com/upload"
 
 		result = await service.create_direct_upload(
 			user_id = 1,
@@ -155,10 +155,10 @@ class TestFileService:
 			user_id = 1,
 			device = DeviceType.desktop,
 			type = MessageType.file,
-			fileName = "1231231.pdf",
-			fileSize = 123,
-			fileType = "pdf",
-			filePath = "cloudflare.r2.com"
+			file_name = "1231231.pdf",
+			file_size = 123,
+			file_type = "pdf",
+			file_path = "cloudflare.r2.com"
 		)
 
 		result = await service.complete_direct_upload(schema)
@@ -178,10 +178,10 @@ class TestFileService:
 			user_id = 1,
 			device = DeviceType.desktop,
 			type = MessageType.file,
-			fileName = "1231231.pdf",
-			fileSize = 123,
-			fileType = "pdf",
-			filePath = "cloudflare.r2.com"
+			file_name = "1231231.pdf",
+			file_size = 123,
+			file_type = "pdf",
+			file_path = "cloudflare.r2.com"
 		)
 
 		with pytest.raises(FileUploadAbortedError):
