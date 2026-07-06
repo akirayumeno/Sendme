@@ -347,7 +347,7 @@ const SendMeResponsive = () => {
             setIsLoggedIn(true);
             setIsRegisterView(false);
             setAuthLoading(false);
-            void fetchMessages();
+            void fetchMessages({silent: true});
 		} catch (err) {
 			const message = getErrorMessage(err, 'Login failed. Please check your username and password.');
 			setAuthError(message);

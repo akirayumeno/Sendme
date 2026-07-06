@@ -1,4 +1,6 @@
+import logging
 import secrets
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -9,6 +11,8 @@ from app.services.notification_service import notification_service
 from app.storage.abstract_metadata_repo import AbstractRefreshTokenRepository, AbstractUserRepository
 from app.storage.exceptions import UserConstraintError
 from app.storage.redis_repo import RedisRepo
+
+logger = logging.getLogger("uvicorn.error")
 
 
 class AuthService:
@@ -111,21 +115,64 @@ class AuthService:
 		"""
 		Authenticate user and issue dual JWT tokens (Access + Refresh).
 		"""
+		total_started_at = time.perf_counter()
+
+		lookup_started_at = time.perf_counter()
 		user = await self.user_repo.get_user_by_username(username)
-		if not user or not security.verify_password(password, user.hashed_password):
+		lookup_ms = (time.perf_counter() - lookup_started_at) * 1000
+
+		if not user:
+			logger.info(
+				"auth.login.timing outcome=invalid_credentials lookup_ms=%.1f verify_ms=0.0 token_ms=0.0 refresh_persist_ms=0.0 total_ms=%.1f",
+				lookup_ms,
+				(time.perf_counter() - total_started_at) * 1000,
+			)
 			raise ValueError("Invalid username or password.")
+
+		verify_started_at = time.perf_counter()
+		password_valid = security.verify_password(password, user.hashed_password)
+		verify_ms = (time.perf_counter() - verify_started_at) * 1000
+		if not password_valid:
+			logger.info(
+				"auth.login.timing outcome=invalid_credentials lookup_ms=%.1f verify_ms=%.1f token_ms=0.0 refresh_persist_ms=0.0 total_ms=%.1f",
+				lookup_ms,
+				verify_ms,
+				(time.perf_counter() - total_started_at) * 1000,
+			)
+			raise ValueError("Invalid username or password.")
+
 		if not user.is_verified:
+			logger.info(
+				"auth.login.timing outcome=email_not_verified user_id=%s lookup_ms=%.1f verify_ms=%.1f token_ms=0.0 refresh_persist_ms=0.0 total_ms=%.1f",
+				user.id,
+				lookup_ms,
+				verify_ms,
+				(time.perf_counter() - total_started_at) * 1000,
+			)
 			raise ValueError("Email not verified.")
 
+		token_started_at = time.perf_counter()
 		refresh_jti = str(uuid.uuid4())
 		access_token = security.create_access_token(user.id)
 		refresh_token = security.create_refresh_token(user.id, refresh_jti)
+		token_ms = (time.perf_counter() - token_started_at) * 1000
 
 		expires_at = datetime.now(timezone.utc) + timedelta(days = settings.REFRESH_TOKEN_EXPIRE_DAYS)
+		persist_started_at = time.perf_counter()
 		await self.token_repo.create_token_record(
 			user_id = user.id,
 			token_jti = refresh_jti,
 			expires_at = expires_at,
+		)
+		refresh_persist_ms = (time.perf_counter() - persist_started_at) * 1000
+		logger.info(
+			"auth.login.timing outcome=success user_id=%s lookup_ms=%.1f verify_ms=%.1f token_ms=%.1f refresh_persist_ms=%.1f total_ms=%.1f",
+			user.id,
+			lookup_ms,
+			verify_ms,
+			token_ms,
+			refresh_persist_ms,
+			(time.perf_counter() - total_started_at) * 1000,
 		)
 
 		return {
