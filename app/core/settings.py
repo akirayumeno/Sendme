@@ -45,6 +45,7 @@ class Settings(BaseSettings):
 	GLOBAL_MAX_STORAGE_BYTES: int = 9 * 1024 * 1024 * 1024
 
 	# --- Auth (OTP) ---
+	BCRYPT_ROUNDS: int = Field(default = 10, ge = 10, le = 14)
 	OTP_EXPIRATION_SECONDS: int = 300
 	OTP_RESEND_COOLDOWN_SECONDS: int = 60
 	OTP_MAX_ATTEMPTS: int = 5

@@ -89,6 +89,7 @@ class TestAuthService:
 
 	async def test_login_success(self, auth_service, mock_repos, monkeypatch):
 		monkeypatch.setattr("app.core.security.verify_password", lambda _p, _h: True)
+		monkeypatch.setattr("app.core.security.password_needs_rehash", lambda _h: False)
 		monkeypatch.setattr("app.core.security.create_access_token", lambda _uid: "fake_access")
 		monkeypatch.setattr("app.core.security.create_refresh_token", lambda _uid, _jti: "fake_refresh")
 
@@ -103,6 +104,24 @@ class TestAuthService:
 		assert result["access_token"] == "fake_access"
 		assert result["refresh_token"] == "fake_refresh"
 		mock_repos["token_repo"].create_token_record.assert_awaited_once()
+
+	async def test_login_rehashes_password_when_policy_changes(self, auth_service, mock_repos, monkeypatch):
+		monkeypatch.setattr("app.core.security.verify_password", lambda _p, _h: True)
+		monkeypatch.setattr("app.core.security.password_needs_rehash", lambda _h: True)
+		monkeypatch.setattr("app.core.security.hash_password", lambda _p: "new_hash")
+		monkeypatch.setattr("app.core.security.create_access_token", lambda _uid: "fake_access")
+		monkeypatch.setattr("app.core.security.create_refresh_token", lambda _uid, _jti: "fake_refresh")
+
+		user = MagicMock()
+		user.id = 99
+		user.hashed_password = "old_hash"
+		user.is_verified = True
+		mock_repos["user_repo"].get_user_by_username.return_value = user
+
+		result = await auth_service.login("testuser", "password123")
+
+		assert result["access_token"] == "fake_access"
+		mock_repos["user_repo"].update_user.assert_awaited_once_with(99, {"hashed_password":"new_hash"})
 
 	async def test_refresh_token_success(self, auth_service, mock_repos, monkeypatch):
 		fake_payload = {"type": "refresh", "sub": "99", "jti": "some-uuid"}

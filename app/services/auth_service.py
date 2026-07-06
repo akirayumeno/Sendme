@@ -151,6 +151,18 @@ class AuthService:
 			)
 			raise ValueError("Email not verified.")
 
+		rehash_ms = 0.0
+		if security.password_needs_rehash(user.hashed_password):
+			rehash_started_at = time.perf_counter()
+			try:
+				await self.user_repo.update_user(
+					user.id,
+					{"hashed_password":security.hash_password(password)},
+				)
+			except Exception:
+				logger.warning("auth.login.password_rehash_failed user_id=%s", user.id, exc_info = True)
+			rehash_ms = (time.perf_counter() - rehash_started_at) * 1000
+
 		token_started_at = time.perf_counter()
 		refresh_jti = str(uuid.uuid4())
 		access_token = security.create_access_token(user.id)
@@ -166,10 +178,11 @@ class AuthService:
 		)
 		refresh_persist_ms = (time.perf_counter() - persist_started_at) * 1000
 		logger.info(
-			"auth.login.timing outcome=success user_id=%s lookup_ms=%.1f verify_ms=%.1f token_ms=%.1f refresh_persist_ms=%.1f total_ms=%.1f",
+			"auth.login.timing outcome=success user_id=%s lookup_ms=%.1f verify_ms=%.1f rehash_ms=%.1f token_ms=%.1f refresh_persist_ms=%.1f total_ms=%.1f",
 			user.id,
 			lookup_ms,
 			verify_ms,
+			rehash_ms,
 			token_ms,
 			refresh_persist_ms,
 			(time.perf_counter() - total_started_at) * 1000,

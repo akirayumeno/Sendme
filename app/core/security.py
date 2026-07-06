@@ -5,7 +5,11 @@ from passlib.context import CryptContext
 
 from app.core.settings import settings
 
-pwd_context = CryptContext(schemes = ["bcrypt"], deprecated = "auto")
+pwd_context = CryptContext(
+	schemes = ["bcrypt"],
+	deprecated = "auto",
+	bcrypt__rounds = settings.BCRYPT_ROUNDS,
+)
 SECRET_KEY = settings.SECRET_KEY  # get from config
 ALGORITHM = settings.ALGORITHM
 
@@ -19,6 +23,11 @@ def hash_password(password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
 	"""Verify whether the original password and the hashed password match."""
 	return pwd_context.verify(plain_password, hashed_password)
+
+
+def password_needs_rehash(hashed_password: str) -> bool:
+	"""Return whether a stored hash should be upgraded to current password policy."""
+	return pwd_context.needs_update(hashed_password)
 
 
 def create_access_token(user_id: int) -> str:

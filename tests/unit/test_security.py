@@ -11,6 +11,7 @@ def test_password_hashing_logic():
 
 	assert security.verify_password(raw_password, hashed) is True
 	assert security.verify_password("wrong_password", hashed) is False
+	assert security.password_needs_rehash(hashed) is False
 
 
 def test_create_access_token():
